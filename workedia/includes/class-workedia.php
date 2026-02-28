@@ -53,6 +53,10 @@ class Workedia {
         $this->loader->add_action('wp_ajax_workedia_get_ticket_details', $plugin_public, 'ajax_get_ticket_details');
         $this->loader->add_action('wp_ajax_workedia_add_ticket_reply', $plugin_public, 'ajax_add_ticket_reply');
         $this->loader->add_action('wp_ajax_workedia_close_ticket', $plugin_public, 'ajax_close_ticket');
+        $this->loader->add_action('wp_ajax_workedia_create_shipment', $plugin_public, 'ajax_create_shipment');
+        $this->loader->add_action('wp_ajax_workedia_update_shipment', $plugin_public, 'ajax_update_shipment');
+        $this->loader->add_action('wp_ajax_workedia_get_shipment_tracking', $plugin_public, 'ajax_get_shipment_tracking');
+        $this->loader->add_action('wp_ajax_workedia_bulk_shipments', $plugin_public, 'ajax_bulk_shipments');
         $this->loader->add_action('wp_ajax_workedia_update_profile_ajax', $plugin_public, 'ajax_update_profile');
         $this->loader->add_action('wp_ajax_workedia_print', $plugin_public, 'handle_print');
         $this->loader->add_action('wp_ajax_workedia_add_member_ajax', $plugin_public, 'ajax_add_member');

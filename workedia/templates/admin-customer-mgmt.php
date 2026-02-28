@@ -10,6 +10,10 @@ $sub = $_GET['sub'] ?? 'profiles';
 </div>
 
 <div id="customer-profiles" class="workedia-internal-tab" style="display: <?php echo $sub == 'profiles' ? 'block' : 'none'; ?>;">
+    <?php
+    global $wpdb;
+    $customers = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}workedia_customers ORDER BY created_at DESC");
+    ?>
     <div class="workedia-card">
         <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
             <h4>قاعدة بيانات العملاء</h4>
@@ -18,7 +22,18 @@ $sub = $_GET['sub'] ?? 'profiles';
         <div class="workedia-table-container">
             <table class="workedia-table">
                 <thead><tr><th>الاسم</th><th>البريد</th><th>الهاتف</th><th>التصنيف</th></tr></thead>
-                <tbody><tr><td colspan="4" style="text-align:center; padding:20px;">لا يوجد عملاء مسجلين.</td></tr></tbody>
+                <tbody>
+                    <?php if(empty($customers)): ?>
+                        <tr><td colspan="4" style="text-align:center; padding:20px;">لا يوجد عملاء مسجلين.</td></tr>
+                    <?php else: foreach($customers as $c): ?>
+                        <tr>
+                            <td><strong><?php echo esc_html($c->name); ?></strong></td>
+                            <td><?php echo esc_html($c->email); ?></td>
+                            <td><?php echo esc_html($c->phone); ?></td>
+                            <td><span class="workedia-badge"><?php echo esc_html($c->classification); ?></span></td>
+                        </tr>
+                    <?php endforeach; endif; ?>
+                </tbody>
             </table>
         </div>
     </div>
