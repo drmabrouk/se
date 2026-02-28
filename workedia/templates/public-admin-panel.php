@@ -533,8 +533,14 @@ $greeting = ($hour >= 5 && $hour < 12) ? 'صباح الخير' : 'مساء ال�
         <div class="workedia-sidebar" style="width: 280px; flex-shrink: 0; background: <?php echo $appearance['sidebar_bg_color']; ?>; border-left: 1px solid var(--workedia-border-color); padding: 20px 0;">
             <ul style="list-style: none; padding: 0; margin: 0;">
 
+                <?php if (!$is_restricted): ?>
+                <li class="workedia-sidebar-item <?php echo $active_tab == 'summary' ? 'workedia-active' : ''; ?>">
+                    <a href="<?php echo add_query_arg('workedia_tab', 'summary'); ?>" class="workedia-sidebar-link"><span class="dashicons dashicons-dashboard"></span> <?php echo $labels['tab_summary']; ?></a>
+                </li>
+
+                <!-- Shipping Dashboard Sections -->
                 <li class="workedia-sidebar-item <?php echo $active_tab == 'general-stats' ? 'workedia-active' : ''; ?>">
-                    <a href="<?php echo add_query_arg(['workedia_tab' => 'general-stats', 'sub' => 'active-shipments']); ?>" class="workedia-sidebar-link"><span class="dashicons dashicons-dashboard"></span> <?php echo $labels['tab_general_stats']; ?></a>
+                    <a href="<?php echo add_query_arg(['workedia_tab' => 'general-stats', 'sub' => 'active-shipments']); ?>" class="workedia-sidebar-link"><span class="dashicons dashicons-chart-bar"></span> <?php echo $labels['tab_general_stats']; ?></a>
                     <ul class="workedia-sidebar-dropdown" style="display: <?php echo $active_tab == 'general-stats' ? 'block' : 'none'; ?>;">
                         <li><a href="<?php echo add_query_arg(['workedia_tab' => 'general-stats', 'sub' => 'active-shipments']); ?>" class="<?php echo ($_GET['sub'] ?? '') == 'active-shipments' ? 'workedia-sub-active' : ''; ?>">الشحنات النشطة</a></li>
                         <li><a href="<?php echo add_query_arg(['workedia_tab' => 'general-stats', 'sub' => 'delivered-shipments']); ?>" class="<?php echo ($_GET['sub'] ?? '') == 'delivered-shipments' ? 'workedia-sub-active' : ''; ?>">الشحنات المسلمة</a></li>
@@ -608,7 +614,7 @@ $greeting = ($hour >= 5 && $hour < 12) ? 'صباح الخير' : 'مساء ال�
                 </li>
 
                 <li class="workedia-sidebar-item <?php echo $active_tab == 'pricing-costs' ? 'workedia-active' : ''; ?>">
-                    <a href="<?php echo add_query_arg(['workedia_tab' => 'pricing-costs', 'sub' => 'calculator']); ?>" class="workedia-sidebar-link"><span class="dashicons dashicons-chart-area"></span> <?php echo $labels['tab_pricing_costs']; ?></a>
+                    <a href="<?php echo add_query_arg(['workedia_tab' => 'pricing-costs', 'sub' => 'calculator']); ?>" class="workedia-sidebar-link"><span class="dashicons dashicons-calculator"></span> <?php echo $labels['tab_pricing_costs']; ?></a>
                     <ul class="workedia-sidebar-dropdown" style="display: <?php echo $active_tab == 'pricing-costs' ? 'block' : 'none'; ?>;">
                         <li><a href="<?php echo add_query_arg(['workedia_tab' => 'pricing-costs', 'sub' => 'calculator']); ?>" class="<?php echo ($_GET['sub'] ?? '') == 'calculator' ? 'workedia-sub-active' : ''; ?>">حاسبة الشحن</a></li>
                         <li><a href="<?php echo add_query_arg(['workedia_tab' => 'pricing-costs', 'sub' => 'transport-costs']); ?>" class="<?php echo ($_GET['sub'] ?? '') == 'transport-costs' ? 'workedia-sub-active' : ''; ?>">تكاليف النقل</a></li>
@@ -616,6 +622,20 @@ $greeting = ($hour >= 5 && $hour < 12) ? 'صباح الخير' : 'مساء ال�
                         <li><a href="<?php echo add_query_arg(['workedia_tab' => 'pricing-costs', 'sub' => 'special-offers']); ?>" class="<?php echo ($_GET['sub'] ?? '') == 'special-offers' ? 'workedia-sub-active' : ''; ?>">عروض خاصة</a></li>
                     </ul>
                 </li>
+                <?php endif; ?>
+
+                <?php if ($is_restricted): ?>
+                    <li class="workedia-sidebar-item <?php echo in_array($active_tab, ['my-profile', 'member-profile']) ? 'workedia-active' : ''; ?>">
+                        <a href="<?php echo add_query_arg('workedia_tab', 'my-profile'); ?>" class="workedia-sidebar-link"><span class="dashicons dashicons-admin-users"></span> <?php echo $labels['tab_my_profile']; ?></a>
+                    </li>
+                <?php endif; ?>
+
+                <?php if (!$is_restricted && ($is_admin || $is_sys_admin || $is_administrator)): ?>
+                    <li class="workedia-sidebar-item <?php echo $active_tab == 'users-management' ? 'workedia-active' : ''; ?>">
+                        <a href="<?php echo add_query_arg('workedia_tab', 'users-management'); ?>" class="workedia-sidebar-link"><span class="dashicons dashicons-admin-users"></span> <?php echo $labels['tab_users_management']; ?></a>
+                    </li>
+                <?php endif; ?>
+
 
                 <?php if ($is_admin || $is_sys_admin || $is_administrator): ?>
                     <li class="workedia-sidebar-item <?php echo $active_tab == 'advanced-settings' ? 'workedia-active' : ''; ?>">
@@ -639,139 +659,35 @@ $greeting = ($hour >= 5 && $hour < 12) ? 'صباح الخير' : 'مساء ال�
             <?php
             switch ($active_tab) {
                 case 'general-stats':
-                    $sub = $_GET['sub'] ?? 'active-shipments';
-                    ?>
-                    <div class="workedia-tabs-wrapper" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
-                        <button class="workedia-tab-btn <?php echo $sub == 'active-shipments' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('stats-active', this)">الشحنات النشطة</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'delivered-shipments' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('stats-delivered', this)">الشحنات المسلمة</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'delayed-shipments' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('stats-delayed', this)">الشحنات المتأخرة</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'total-revenue' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('stats-revenue', this)">إجمالي الإيرادات</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'real-time-status' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('stats-realtime', this)">حالة العمليات</button>
-                    </div>
-                    <div id="stats-active" class="workedia-internal-tab" style="display: <?php echo $sub == 'active-shipments' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>الشحنات النشطة</h4><p>محتوى الشحنات النشطة هنا...</p></div></div>
-                    <div id="stats-delivered" class="workedia-internal-tab" style="display: <?php echo $sub == 'delivered-shipments' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>الشحنات المسلمة</h4><p>محتوى الشحنات المسلمة هنا...</p></div></div>
-                    <div id="stats-delayed" class="workedia-internal-tab" style="display: <?php echo $sub == 'delayed-shipments' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>الشحنات المتأخرة</h4><p>محتوى الشحنات المتأخرة هنا...</p></div></div>
-                    <div id="stats-revenue" class="workedia-internal-tab" style="display: <?php echo $sub == 'total-revenue' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>إجمالي الإيرادات</h4><p>محتوى إجمالي الإيرادات هنا...</p></div></div>
-                    <div id="stats-realtime" class="workedia-internal-tab" style="display: <?php echo $sub == 'real-time-status' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>حالة العمليات المباشرة</h4><p>محتوى حالة العمليات هنا...</p></div></div>
-                    <?php
+                    include WORKEDIA_PLUGIN_DIR . 'templates/admin-general-stats.php';
                     break;
 
                 case 'shipment-mgmt':
-                    $sub = $_GET['sub'] ?? 'create-shipment';
-                    ?>
-                    <div class="workedia-tabs-wrapper" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
-                        <button class="workedia-tab-btn <?php echo $sub == 'create-shipment' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('shipment-create', this)">إنشاء شحنة</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'tracking' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('shipment-tracking', this)">تتبع الشحنات</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'monitoring' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('shipment-monitoring', this)">مراقبة الحالة</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'schedule' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('shipment-schedule', this)">جدول الشحن</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'archiving' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('shipment-archiving', this)">الأرشفة</button>
-                    </div>
-                    <div id="shipment-create" class="workedia-internal-tab" style="display: <?php echo $sub == 'create-shipment' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>إنشاء شحنة جديدة</h4><p>نموذج إنشاء شحنة جديدة...</p></div></div>
-                    <div id="shipment-tracking" class="workedia-internal-tab" style="display: <?php echo $sub == 'tracking' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>تتبع الشحنات</h4><p>أدوات تتبع الشحنات...</p></div></div>
-                    <div id="shipment-monitoring" class="workedia-internal-tab" style="display: <?php echo $sub == 'monitoring' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>مراقبة حالة الشحن</h4><p>عرض مراقبة الحالة...</p></div></div>
-                    <div id="shipment-schedule" class="workedia-internal-tab" style="display: <?php echo $sub == 'schedule' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>إدارة جدول الشحن</h4><p>تقويم وجدول الشحن...</p></div></div>
-                    <div id="shipment-archiving" class="workedia-internal-tab" style="display: <?php echo $sub == 'archiving' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>أرشفة الشحنات</h4><p>قائمة الشحنات المؤرشفة...</p></div></div>
-                    <?php
+                    include WORKEDIA_PLUGIN_DIR . 'templates/admin-shipment-mgmt.php';
                     break;
 
                 case 'customer-mgmt':
-                    $sub = $_GET['sub'] ?? 'profiles';
-                    ?>
-                    <div class="workedia-tabs-wrapper" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
-                        <button class="workedia-tab-btn <?php echo $sub == 'profiles' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('customer-profiles', this)">ملفات العملاء</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'history' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('customer-history', this)">سجل الشحنات</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'address-book' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('customer-address', this)">دفتر العناوين</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'contracts' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('customer-contracts', this)">العقود</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'classification' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('customer-class', this)">التصنيف</button>
-                    </div>
-                    <div id="customer-profiles" class="workedia-internal-tab" style="display: <?php echo $sub == 'profiles' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>ملفات العملاء</h4><p>إدارة ملفات العملاء...</p></div></div>
-                    <div id="customer-history" class="workedia-internal-tab" style="display: <?php echo $sub == 'history' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>سجل شحنات العملاء</h4><p>عرض سجل الشحنات لكل عميل...</p></div></div>
-                    <div id="customer-address" class="workedia-internal-tab" style="display: <?php echo $sub == 'address-book' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>دفتر العناوين</h4><p>إدارة عناوين العملاء...</p></div></div>
-                    <div id="customer-contracts" class="workedia-internal-tab" style="display: <?php echo $sub == 'contracts' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>العقود والاتفاقيات</h4><p>إدارة عقود العملاء...</p></div></div>
-                    <div id="customer-class" class="workedia-internal-tab" style="display: <?php echo $sub == 'classification' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>تصنيف العملاء</h4><p>أدوات تصنيف العملاء...</p></div></div>
-                    <?php
+                    include WORKEDIA_PLUGIN_DIR . 'templates/admin-customer-mgmt.php';
                     break;
 
                 case 'order-mgmt':
-                    $sub = $_GET['sub'] ?? 'new-orders';
-                    ?>
-                    <div class="workedia-tabs-wrapper" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
-                        <button class="workedia-tab-btn <?php echo $sub == 'new-orders' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('order-new', this)">طلبات جديدة</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'in-progress' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('order-progress', this)">قيد التنفيذ</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'completed' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('order-completed', this)">مكتملة</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'cancelled' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('order-cancelled', this)">ملغاة</button>
-                    </div>
-                    <div id="order-new" class="workedia-internal-tab" style="display: <?php echo $sub == 'new-orders' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>طلبات شحن جديدة</h4><p>إدارة الطلبات الجديدة...</p></div></div>
-                    <div id="order-progress" class="workedia-internal-tab" style="display: <?php echo $sub == 'in-progress' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>طلبات قيد التنفيذ</h4><p>متابعة الطلبات الحالية...</p></div></div>
-                    <div id="order-completed" class="workedia-internal-tab" style="display: <?php echo $sub == 'completed' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>طلبات مكتملة</h4><p>أرشيف الطلبات المكتملة...</p></div></div>
-                    <div id="order-cancelled" class="workedia-internal-tab" style="display: <?php echo $sub == 'cancelled' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>طلبات ملغاة</h4><p>عرض الطلبات الملغاة...</p></div></div>
-                    <?php
+                    include WORKEDIA_PLUGIN_DIR . 'templates/admin-order-mgmt.php';
                     break;
 
                 case 'tracking-logistics':
-                    $sub = $_GET['sub'] ?? 'live-tracking';
-                    ?>
-                    <div class="workedia-tabs-wrapper" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
-                        <button class="workedia-tab-btn <?php echo $sub == 'live-tracking' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('logistic-live', this)">تتبع مباشر</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'routes' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('logistic-routes', this)">مسارات الشحن</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'stop-points' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('logistic-stops', this)">نقاط التوقف</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'warehouse' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('logistic-warehouse', this)">المستودعات</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'fleet' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('logistic-fleet', this)">الأسطول</button>
-                    </div>
-                    <div id="logistic-live" class="workedia-internal-tab" style="display: <?php echo $sub == 'live-tracking' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>تتبع مباشر</h4><p>خريطة التتبع المباشر...</p></div></div>
-                    <div id="logistic-routes" class="workedia-internal-tab" style="display: <?php echo $sub == 'routes' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>مسارات الشحن</h4><p>إدارة مسارات الرحلات...</p></div></div>
-                    <div id="logistic-stops" class="workedia-internal-tab" style="display: <?php echo $sub == 'stop-points' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>نقاط التوقف</h4><p>تحديد وإدارة نقاط التوقف...</p></div></div>
-                    <div id="logistic-warehouse" class="workedia-internal-tab" style="display: <?php echo $sub == 'warehouse' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>إدارة المستودعات</h4><p>حالة ومخزون المستودعات...</p></div></div>
-                    <div id="logistic-fleet" class="workedia-internal-tab" style="display: <?php echo $sub == 'fleet' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>إدارة الأسطول</h4><p>بيانات المركبات والسائقين...</p></div></div>
-                    <?php
+                    include WORKEDIA_PLUGIN_DIR . 'templates/admin-tracking-logistics.php';
                     break;
 
                 case 'customs-clearance':
-                    $sub = $_GET['sub'] ?? 'documentation';
-                    ?>
-                    <div class="workedia-tabs-wrapper" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
-                        <button class="workedia-tab-btn <?php echo $sub == 'documentation' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('customs-docs', this)">الوثائق</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'invoices' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('customs-invoices', this)">الفواتير</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'duties-taxes' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('customs-taxes', this)">الرسوم والضرائب</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'status' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('customs-status', this)">حالة التخليص</button>
-                    </div>
-                    <div id="customs-docs" class="workedia-internal-tab" style="display: <?php echo $sub == 'documentation' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>الوثائق والمستندات</h4><p>إدارة وثائق الشحن...</p></div></div>
-                    <div id="customs-invoices" class="workedia-internal-tab" style="display: <?php echo $sub == 'invoices' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>الفواتير التجارية</h4><p>عرض وتحميل الفواتير...</p></div></div>
-                    <div id="customs-taxes" class="workedia-internal-tab" style="display: <?php echo $sub == 'duties-taxes' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>الرسوم والضرائب</h4><p>حساب وإدارة الرسوم الجمركية...</p></div></div>
-                    <div id="customs-status" class="workedia-internal-tab" style="display: <?php echo $sub == 'status' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>حالة التخليص الجمركي</h4><p>متابعة عمليات التخليص...</p></div></div>
-                    <?php
+                    include WORKEDIA_PLUGIN_DIR . 'templates/admin-customs-clearance.php';
                     break;
 
                 case 'billing-payments':
-                    $sub = $_GET['sub'] ?? 'invoice-gen';
-                    ?>
-                    <div class="workedia-tabs-wrapper" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
-                        <button class="workedia-tab-btn <?php echo $sub == 'invoice-gen' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('billing-gen', this)">إصدار فواتير</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'records' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('billing-records', this)">سجلات الدفع</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'balances' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('billing-balances', this)">الأرصدة</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'financial-reports' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('billing-reports', this)">التقارير المالية</button>
-                    </div>
-                    <div id="billing-gen" class="workedia-internal-tab" style="display: <?php echo $sub == 'invoice-gen' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>إصدار الفواتير</h4><p>أدوات إنشاء الفواتير...</p></div></div>
-                    <div id="billing-records" class="workedia-internal-tab" style="display: <?php echo $sub == 'records' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>سجلات المدفوعات</h4><p>تاريخ عمليات الدفع...</p></div></div>
-                    <div id="billing-balances" class="workedia-internal-tab" style="display: <?php echo $sub == 'balances' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>الأرصدة المستحقة</h4><p>متابعة المبالغ غير المحصلة...</p></div></div>
-                    <div id="billing-reports" class="workedia-internal-tab" style="display: <?php echo $sub == 'financial-reports' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>التقارير المالية</h4><p>تقارير الأرباح والخسائر...</p></div></div>
-                    <?php
+                    include WORKEDIA_PLUGIN_DIR . 'templates/admin-billing-payments.php';
                     break;
 
                 case 'pricing-costs':
-                    $sub = $_GET['sub'] ?? 'calculator';
-                    ?>
-                    <div class="workedia-tabs-wrapper" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
-                        <button class="workedia-tab-btn <?php echo $sub == 'calculator' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('pricing-calc', this)">الحاسبة</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'transport-costs' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('pricing-transport', this)">تكاليف النقل</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'extra-charges' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('pricing-extra', this)">رسوم إضافية</button>
-                        <button class="workedia-tab-btn <?php echo $sub == 'special-offers' ? 'workedia-active' : ''; ?>" onclick="workediaOpenInternalTab('pricing-offers', this)">عروض خاصة</button>
-                    </div>
-                    <div id="pricing-calc" class="workedia-internal-tab" style="display: <?php echo $sub == 'calculator' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>حاسبة الشحن</h4><p>أداة حساب تكلفة الشحن...</p></div></div>
-                    <div id="pricing-transport" class="workedia-internal-tab" style="display: <?php echo $sub == 'transport-costs' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>تكاليف النقل</h4><p>إدارة قوائم تكاليف النقل...</p></div></div>
-                    <div id="pricing-extra" class="workedia-internal-tab" style="display: <?php echo $sub == 'extra-charges' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>رسوم إضافية</h4><p>إدارة الرسوم والخدمات الإضافية...</p></div></div>
-                    <div id="pricing-offers" class="workedia-internal-tab" style="display: <?php echo $sub == 'special-offers' ? 'block' : 'none'; ?>;"><div class="workedia-card"><h4>عروض خاصة</h4><p>إدارة الخصومات والعروض...</p></div></div>
-                    <?php
+                    include WORKEDIA_PLUGIN_DIR . 'templates/admin-pricing-costs.php';
                     break;
 
                 case 'summary':

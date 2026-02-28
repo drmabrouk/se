@@ -394,9 +394,16 @@ class Workedia_DB {
     public static function get_backup_data() {
         global $wpdb;
         $data = array();
-        $tables = array('members', 'messages');
+        $tables = array(
+            'members', 'messages', 'shipments', 'orders', 'customers',
+            'logistics', 'customs', 'invoices', 'payments', 'pricing'
+        );
         foreach ($tables as $t) {
-            $data[$t] = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}workedia_$t", ARRAY_A);
+            // Check if table exists before querying
+            $table_name = $wpdb->prefix . 'workedia_' . $t;
+            if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+                $data[$t] = $wpdb->get_results("SELECT * FROM $table_name", ARRAY_A);
+            }
         }
         return json_encode($data);
     }
@@ -408,9 +415,11 @@ class Workedia_DB {
 
         foreach ($data as $table => $rows) {
             $table_name = $wpdb->prefix . 'workedia_' . $table;
-            $wpdb->query("TRUNCATE TABLE $table_name");
-            foreach ($rows as $row) {
-                $wpdb->insert($table_name, $row);
+            if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+                $wpdb->query("TRUNCATE TABLE $table_name");
+                foreach ($rows as $row) {
+                    $wpdb->insert($table_name, $row);
+                }
             }
         }
         return true;
