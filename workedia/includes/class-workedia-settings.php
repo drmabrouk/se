@@ -28,7 +28,15 @@ class Workedia_Settings {
             'tab_summary' => 'لوحة المعلومات',
             'tab_users_management' => 'إدارة مستخدمي النظام',
             'tab_global_settings' => 'إعدادات النظام',
-            'tab_my_profile' => 'ملفي الشخصي'
+            'tab_my_profile' => 'ملفي الشخصي',
+            'tab_general_stats' => 'الإحصائيات العامة',
+            'tab_shipment_mgmt' => 'إدارة الشحنات',
+            'tab_customer_mgmt' => 'إدارة العملاء',
+            'tab_order_mgmt' => 'إدارة الطلبات',
+            'tab_tracking_logistics' => 'التتبع والخدمات اللوجستية',
+            'tab_customs_clearance' => 'التخليص الجمركي',
+            'tab_billing_payments' => 'الفواتير والمدفوعات',
+            'tab_pricing_costs' => 'التسعير والتكاليف'
         );
         return wp_parse_args(get_option('workedia_labels', array()), $default);
     }
