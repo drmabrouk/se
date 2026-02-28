@@ -192,6 +192,104 @@ class Workedia_Activator {
             KEY user_id (user_id)
         ) $charset_collate;\n";
 
+        // Shipments Table
+        $table_name = $wpdb->prefix . 'workedia_shipments';
+        $sql .= "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            shipment_number varchar(100) NOT NULL,
+            customer_id mediumint(9),
+            origin varchar(255),
+            destination varchar(255),
+            status varchar(50) DEFAULT 'pending',
+            created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            UNIQUE KEY shipment_number (shipment_number)
+        ) $charset_collate;\n";
+
+        // Orders Table
+        $table_name = $wpdb->prefix . 'workedia_orders';
+        $sql .= "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            order_number varchar(100) NOT NULL,
+            customer_id mediumint(9),
+            total_amount decimal(10,2),
+            status varchar(50) DEFAULT 'new',
+            created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY order_number (order_number)
+        ) $charset_collate;\n";
+
+        // Customers Table
+        $table_name = $wpdb->prefix . 'workedia_customers';
+        $sql .= "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            name varchar(255) NOT NULL,
+            email varchar(100),
+            phone varchar(50),
+            address text,
+            classification varchar(50),
+            created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            PRIMARY KEY  (id)
+        ) $charset_collate;\n";
+
+        // Logistics Table
+        $table_name = $wpdb->prefix . 'workedia_logistics';
+        $sql .= "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            route_name varchar(255),
+            stop_points text,
+            fleet_details text,
+            warehouse_info text,
+            PRIMARY KEY  (id)
+        ) $charset_collate;\n";
+
+        // Customs Table
+        $table_name = $wpdb->prefix . 'workedia_customs';
+        $sql .= "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            shipment_id mediumint(9),
+            documentation_status varchar(50),
+            duties_amount decimal(10,2),
+            clearance_status varchar(50),
+            PRIMARY KEY  (id)
+        ) $charset_collate;\n";
+
+        // Invoices Table
+        $table_name = $wpdb->prefix . 'workedia_invoices';
+        $sql .= "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            invoice_number varchar(100) NOT NULL,
+            order_id mediumint(9),
+            amount decimal(10,2),
+            due_date date,
+            status varchar(50) DEFAULT 'unpaid',
+            PRIMARY KEY  (id),
+            UNIQUE KEY invoice_number (invoice_number)
+        ) $charset_collate;\n";
+
+        // Payments Table
+        $table_name = $wpdb->prefix . 'workedia_payments';
+        $sql .= "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            invoice_id mediumint(9),
+            amount_paid decimal(10,2),
+            payment_date datetime DEFAULT CURRENT_TIMESTAMP,
+            payment_method varchar(50),
+            PRIMARY KEY  (id)
+        ) $charset_collate;\n";
+
+        // Pricing Table
+        $table_name = $wpdb->prefix . 'workedia_pricing';
+        $sql .= "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            service_name varchar(255),
+            base_cost decimal(10,2),
+            additional_fees decimal(10,2),
+            special_offer_details text,
+            PRIMARY KEY  (id)
+        ) $charset_collate;\n";
+
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta($sql);
 
