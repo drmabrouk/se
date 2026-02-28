@@ -200,11 +200,51 @@ class Workedia_Activator {
             customer_id mediumint(9),
             origin varchar(255),
             destination varchar(255),
+            weight decimal(10,2),
+            dimensions varchar(100),
+            classification varchar(50),
             status varchar(50) DEFAULT 'pending',
+            pickup_date datetime,
+            dispatch_date datetime,
+            delivery_date datetime,
+            carrier_id mediumint(9),
+            route_id mediumint(9),
+            is_archived tinyint(1) DEFAULT 0,
             created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
-            UNIQUE KEY shipment_number (shipment_number)
+            UNIQUE KEY shipment_number (shipment_number),
+            KEY customer_id (customer_id),
+            KEY status (status),
+            KEY is_archived (is_archived)
+        ) $charset_collate;\n";
+
+        // Shipment Logs Table (Audit Trail)
+        $table_name = $wpdb->prefix . 'workedia_shipment_logs';
+        $sql .= "CREATE TABLE $table_name (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            shipment_id mediumint(9) NOT NULL,
+            user_id bigint(20),
+            action varchar(100) NOT NULL,
+            old_value text,
+            new_value text,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            PRIMARY KEY  (id),
+            KEY shipment_id (shipment_id)
+        ) $charset_collate;\n";
+
+        // Shipment Tracking Events Table
+        $table_name = $wpdb->prefix . 'workedia_shipment_tracking_events';
+        $sql .= "CREATE TABLE $table_name (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            shipment_id mediumint(9) NOT NULL,
+            status varchar(50) NOT NULL,
+            location varchar(255),
+            description text,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            PRIMARY KEY  (id),
+            KEY shipment_id (shipment_id),
+            KEY status (status)
         ) $charset_collate;\n";
 
         // Orders Table
@@ -316,6 +356,16 @@ class Workedia_Activator {
             'admin_alert' => [
                 'subject' => 'تنبيه إداري من Workedia',
                 'body' => "عزيزي العضو {member_name}،\n\n{alert_message}\n\nشكراً لكم.",
+                'days_before' => 0
+            ],
+            'shipment_status_update' => [
+                'subject' => 'تحديث حالة الشحنة: {shipment_number}',
+                'body' => "عزيزي العميل،\n\nتم تحديث حالة شحنتكم رقم {shipment_number} إلى: {status}.\n\nشكراً لاستخدامكم خدماتنا.",
+                'days_before' => 0
+            ],
+            'shipment_delay_alert' => [
+                'subject' => 'تنبيه: تأخر في وصول الشحنة {shipment_number}',
+                'body' => "عزيزي العميل،\n\nنعتذر عن إبلاغكم بوجود تأخير بسيط في وصول شحنتكم رقم {shipment_number}.\nالحالة الحالية: {status}.\n\nشكراً لتفهمكم.",
                 'days_before' => 0
             ]
         ];

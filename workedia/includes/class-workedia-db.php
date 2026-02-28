@@ -425,6 +425,118 @@ class Workedia_DB {
         return true;
     }
 
+    public static function add_shipment($data) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'workedia_shipments';
+        $res = $wpdb->insert($table, array(
+            'shipment_number' => $data['shipment_number'],
+            'customer_id' => intval($data['customer_id']),
+            'origin' => sanitize_text_field($data['origin']),
+            'destination' => sanitize_text_field($data['destination']),
+            'weight' => floatval($data['weight']),
+            'dimensions' => sanitize_text_field($data['dimensions']),
+            'classification' => sanitize_text_field($data['classification']),
+            'status' => sanitize_text_field($data['status'] ?? 'pending'),
+            'pickup_date' => $data['pickup_date'] ?: null,
+            'dispatch_date' => $data['dispatch_date'] ?: null,
+            'delivery_date' => $data['delivery_date'] ?: null,
+            'carrier_id' => intval($data['carrier_id'] ?? 0),
+            'route_id' => intval($data['route_id'] ?? 0)
+        ));
+        if ($res) {
+            $id = $wpdb->insert_id;
+            self::log_shipment_event($id, $data['status'] ?? 'pending', 'Shipment created');
+            return $id;
+        }
+        return false;
+    }
+
+    public static function update_shipment($id, $data) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'workedia_shipments';
+        $old_shipment = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $id), ARRAY_A);
+
+        $res = $wpdb->update($table, $data, array('id' => $id));
+        if ($res !== false) {
+            foreach ($data as $key => $val) {
+                if (isset($old_shipment[$key]) && $old_shipment[$key] != $val) {
+                    self::add_shipment_audit_log($id, "Updated $key", $old_shipment[$key], $val);
+                }
+            }
+            if (isset($data['status'])) {
+                self::log_shipment_event($id, $data['status'], 'Status updated');
+
+                // Trigger Automated Alert
+                $shipment = self::get_shipment_with_tracking($id);
+                if ($shipment && $shipment->customer_id) {
+                    $customer = $wpdb->get_row($wpdb->prepare("SELECT email, name FROM {$wpdb->prefix}workedia_customers WHERE id = %d", $shipment->customer_id));
+                    if ($customer && $customer->email) {
+                        Workedia_Notifications::send_template_notification($shipment->customer_id, 'shipment_status_update', [
+                            '{shipment_number}' => $shipment->shipment_number,
+                            '{status}' => $data['status']
+                        ]);
+                    }
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public static function log_shipment_event($shipment_id, $status, $description = '', $location = '') {
+        global $wpdb;
+        return $wpdb->insert($wpdb->prefix . 'workedia_shipment_tracking_events', array(
+            'shipment_id' => intval($shipment_id),
+            'status' => $status,
+            'location' => $location,
+            'description' => $description,
+            'created_at' => current_time('mysql')
+        ));
+    }
+
+    public static function add_shipment_audit_log($shipment_id, $action, $old_val = '', $new_val = '') {
+        global $wpdb;
+        return $wpdb->insert($wpdb->prefix . 'workedia_shipment_logs', array(
+            'shipment_id' => intval($shipment_id),
+            'user_id' => get_current_user_id(),
+            'action' => $action,
+            'old_value' => is_array($old_val) ? json_encode($old_val) : $old_val,
+            'new_value' => is_array($new_val) ? json_encode($new_val) : $new_val,
+            'created_at' => current_time('mysql')
+        ));
+    }
+
+    public static function get_shipment_with_tracking($id_or_number) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'workedia_shipments';
+        if (is_numeric($id_or_number)) {
+            $shipment = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $id_or_number));
+        } else {
+            $shipment = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE shipment_number = %s", $id_or_number));
+        }
+
+        if ($shipment) {
+            $id = $shipment->id;
+            $shipment->events = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}workedia_shipment_tracking_events WHERE shipment_id = %d ORDER BY created_at DESC",
+                $id
+            ));
+        }
+        return $shipment;
+    }
+
+    public static function bulk_add_shipments($rows) {
+        $count = 0;
+        foreach ($rows as $row) {
+            if (self::add_shipment($row)) $count++;
+        }
+        return $count;
+    }
+
+    public static function archive_shipment($id) {
+        return self::update_shipment($id, array('is_archived' => 1));
+    }
+
 
 
 

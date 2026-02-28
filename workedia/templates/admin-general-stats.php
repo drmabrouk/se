@@ -10,15 +10,30 @@ $sub = $_GET['sub'] ?? 'active-shipments';
 </div>
 
 <div id="stats-active" class="workedia-internal-tab" style="display: <?php echo $sub == 'active-shipments' ? 'block' : 'none'; ?>;">
+    <?php
+    global $wpdb;
+    $active_shipments = $wpdb->get_results("SELECT s.*, c.name as customer_name FROM {$wpdb->prefix}workedia_shipments s LEFT JOIN {$wpdb->prefix}workedia_customers c ON s.customer_id = c.id WHERE s.status != 'delivered' AND s.is_archived = 0");
+    ?>
     <div class="workedia-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <h4 style="margin:0;">الشحنات النشطة حالياً</h4>
-            <span class="workedia-badge workedia-badge-high">إجمالي: 0</span>
+            <span class="workedia-badge workedia-badge-high">إجمالي: <?php echo count($active_shipments); ?></span>
         </div>
         <div class="workedia-table-container">
             <table class="workedia-table">
                 <thead><tr><th>رقم الشحنة</th><th>العميل</th><th>المسار</th><th>الحالة</th></tr></thead>
-                <tbody><tr><td colspan="4" style="text-align:center; padding:20px;">لا توجد بيانات متاحة حالياً.</td></tr></tbody>
+                <tbody>
+                    <?php if(empty($active_shipments)): ?>
+                        <tr><td colspan="4" style="text-align:center; padding:20px;">لا توجد بيانات متاحة حالياً.</td></tr>
+                    <?php else: foreach($active_shipments as $shp): ?>
+                        <tr>
+                            <td><strong><?php echo $shp->shipment_number; ?></strong></td>
+                            <td><?php echo esc_html($shp->customer_name); ?></td>
+                            <td><?php echo esc_html($shp->origin . ' → ' . $shp->destination); ?></td>
+                            <td><span class="workedia-badge"><?php echo $shp->status; ?></span></td>
+                        </tr>
+                    <?php endforeach; endif; ?>
+                </tbody>
             </table>
         </div>
     </div>
@@ -39,9 +54,12 @@ $sub = $_GET['sub'] ?? 'active-shipments';
 </div>
 
 <div id="stats-revenue" class="workedia-internal-tab" style="display: <?php echo $sub == 'total-revenue' ? 'block' : 'none'; ?>;">
+    <?php
+    $total_revenue = $wpdb->get_var("SELECT SUM(amount) FROM {$wpdb->prefix}workedia_invoices WHERE status = 'paid'");
+    ?>
     <div class="workedia-card">
-        <h4>إجمالي الإيرادات</h4>
-        <div style="font-size: 2em; font-weight: 800; color: #27ae60;">0.00 EGP</div>
+        <h4>إجمالي الإيرادات (المحصلة)</h4>
+        <div style="font-size: 2em; font-weight: 800; color: #27ae60;"><?php echo number_format($total_revenue ?: 0, 2); ?> EGP</div>
     </div>
 </div>
 

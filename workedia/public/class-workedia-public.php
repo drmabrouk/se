@@ -1878,6 +1878,64 @@ class Workedia_Public {
         else wp_send_json_error('Failed to close ticket');
     }
 
+    public function ajax_create_shipment() {
+        if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+        check_ajax_referer('workedia_shipment_action', 'nonce');
+
+        $data = array(
+            'shipment_number' => 'SHP-' . strtoupper(wp_generate_password(8, false)),
+            'customer_id' => intval($_POST['customer_id']),
+            'origin' => sanitize_text_field($_POST['origin']),
+            'destination' => sanitize_text_field($_POST['destination']),
+            'weight' => floatval($_POST['weight']),
+            'dimensions' => sanitize_text_field($_POST['dimensions']),
+            'classification' => sanitize_text_field($_POST['classification']),
+            'status' => 'pending',
+            'pickup_date' => $_POST['pickup_date'],
+            'dispatch_date' => $_POST['dispatch_date'],
+            'delivery_date' => $_POST['delivery_date'],
+            'carrier_id' => intval($_POST['carrier_id']),
+            'route_id' => intval($_POST['route_id'])
+        );
+
+        $id = Workedia_DB::add_shipment($data);
+        if ($id) wp_send_json_success($id);
+        else wp_send_json_error('Failed to create shipment');
+    }
+
+    public function ajax_update_shipment() {
+        if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+        check_ajax_referer('workedia_shipment_action', 'nonce');
+
+        $id = intval($_POST['id']);
+        $data = array();
+        $fields = ['status', 'location', 'description', 'carrier_id', 'route_id', 'is_archived'];
+        foreach ($fields as $f) {
+            if (isset($_POST[$f])) $data[$f] = sanitize_text_field($_POST[$f]);
+        }
+
+        if (Workedia_DB::update_shipment($id, $data)) wp_send_json_success();
+        else wp_send_json_error('Failed to update shipment');
+    }
+
+    public function ajax_get_shipment_tracking() {
+        if (!is_user_logged_in()) wp_send_json_error('Unauthorized');
+        check_ajax_referer('workedia_shipment_action', 'nonce');
+        $val = $_GET['id'] ?? $_GET['number'];
+        $shipment = Workedia_DB::get_shipment_with_tracking($val);
+        if ($shipment) wp_send_json_success($shipment);
+        else wp_send_json_error('Shipment not found');
+    }
+
+    public function ajax_bulk_shipments() {
+        if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+        check_ajax_referer('workedia_shipment_action', 'nonce');
+
+        $rows = json_decode(stripslashes($_POST['rows']), true);
+        $count = Workedia_DB::bulk_add_shipments($rows);
+        wp_send_json_success($count);
+    }
+
     public function inject_global_alerts() {
         if (!is_user_logged_in()) return;
 
