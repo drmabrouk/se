@@ -74,19 +74,33 @@ $sub = $_GET['sub'] ?? 'create-shipment';
 
 <!-- Monitoring & Audit Trail -->
 <div id="shipment-monitoring" class="shipping-internal-tab" style="display: <?php echo $sub == 'monitoring' ? 'block' : 'none'; ?>;">
+    <?php
+    $monitoring_shipments = $wpdb->get_results("SELECT s.*, (SELECT location FROM {$wpdb->prefix}shipping_shipment_tracking_events WHERE shipment_id = s.id ORDER BY created_at DESC LIMIT 1) as current_location FROM {$wpdb->prefix}shipping_shipments s WHERE s.status NOT IN ('delivered', 'cancelled') AND s.is_archived = 0 ORDER BY s.updated_at DESC");
+    ?>
     <div class="shipping-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <h4>مراقبة حالة الشحن والعمليات</h4>
             <div style="display:flex; gap:10px;">
-                <select class="shipping-select" style="width:150px;"><option value="">كل الحالات</option></select>
-                <button class="shipping-btn shipping-btn-outline" style="width:auto;">تحديث البيانات</button>
+                <button class="shipping-btn shipping-btn-outline" style="width:auto;" onclick="location.reload()">تحديث البيانات</button>
             </div>
         </div>
         <div class="shipping-table-container">
             <table class="shipping-table">
-                <thead><tr><th>رقم الشحنة</th><th>الموقع الحالي</th><th>آخر تحديث</th><th>التقدم</th><th>إجراءات</th></tr></thead>
+                <thead><tr><th>رقم الشحنة</th><th>الموقع الحالي</th><th>آخر تحديث</th><th>الحالة</th><th>إجراءات</th></tr></thead>
                 <tbody>
-                    <tr><td colspan="5" style="text-align:center; padding:20px;">لا توجد عمليات مراقبة نشطة حالياً.</td></tr>
+                    <?php if(empty($monitoring_shipments)): ?>
+                        <tr><td colspan="5" style="text-align:center; padding:20px;">لا توجد عمليات مراقبة نشطة حالياً.</td></tr>
+                    <?php else: foreach($monitoring_shipments as $s): ?>
+                        <tr>
+                            <td><strong><?php echo $s->shipment_number; ?></strong></td>
+                            <td><?php echo esc_html($s->current_location ?: 'غير محدد'); ?></td>
+                            <td><?php echo date('Y-m-d H:i', strtotime($s->updated_at)); ?></td>
+                            <td><span class="shipping-badge"><?php echo $s->status; ?></span></td>
+                            <td>
+                                <button class="shipping-btn shipping-btn-outline" style="padding:4px 8px; font-size:11px;" onclick="document.getElementById('track-number').value='<?php echo $s->shipment_number; ?>'; shippingOpenInternalTab('shipment-tracking', this.closest('.shipping-internal-tab').parentElement.querySelector('.shipping-tab-btn:nth-child(2)')); trackShipment();">تتبع</button>
+                            </td>
+                        </tr>
+                    <?php endforeach; endif; ?>
                 </tbody>
             </table>
         </div>
@@ -95,20 +109,26 @@ $sub = $_GET['sub'] ?? 'create-shipment';
 
 <!-- 4. Intelligent Scheduling Module -->
 <div id="shipment-schedule" class="shipping-internal-tab" style="display: <?php echo $sub == 'schedule' ? 'block' : 'none'; ?>;">
+    <?php
+    $today = date('Y-m-d');
+    $pickup_today = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->prefix}shipping_shipments WHERE DATE(pickup_date) = %s", $today));
+    $dispatch_today = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->prefix}shipping_shipments WHERE DATE(dispatch_date) = %s", $today));
+    $delivery_today = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->prefix}shipping_shipments WHERE DATE(delivery_date) = %s", $today));
+    ?>
     <div class="shipping-card">
-        <h4>جدول الشحن والمواعيد الذكي</h4>
+        <h4>جدول الشحن والمواعيد اليومي</h4>
         <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px;">
             <div style="background:#fffaf0; padding:15px; border-radius:10px; border:1px solid #feebc8;">
                 <h5 style="margin-top:0; color:#dd6b20;">مواعيد الاستلام اليوم</h5>
-                <div style="font-size:24px; font-weight:800;">0</div>
+                <div style="font-size:24px; font-weight:800;"><?php echo $pickup_today; ?></div>
             </div>
             <div style="background:#ebf8ff; padding:15px; border-radius:10px; border:1px solid #bee3f8;">
                 <h5 style="margin-top:0; color:#3182ce;">شحنات قيد الانطلاق</h5>
-                <div style="font-size:24px; font-weight:800;">0</div>
+                <div style="font-size:24px; font-weight:800;"><?php echo $dispatch_today; ?></div>
             </div>
             <div style="background:#f0fff4; padding:15px; border-radius:10px; border:1px solid #c6f6d5;">
                 <h5 style="margin-top:0; color:#38a169;">مواعيد التسليم المتوقعة</h5>
-                <div style="font-size:24px; font-weight:800;">0</div>
+                <div style="font-size:24px; font-weight:800;"><?php echo $delivery_today; ?></div>
             </div>
         </div>
     </div>

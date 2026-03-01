@@ -29,7 +29,7 @@ $design = get_option('shipping_email_design_settings', [
 ]);
 
 $templates = [
-    'membership_renewal' => 'تجديد الحساب السنوية',
+    'customership_renewal' => 'تجديد الحساب السنوية',
     'welcome_activation' => 'رسالة الترحيب والتفعيل',
     'admin_alert' => 'التنبيهات الإدارية العامة'
 ];
@@ -90,7 +90,7 @@ $templates = [
                         <textarea name="body" id="edit_body" class="shipping-textarea" rows="10" required></textarea>
                         <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px;">
                             <span style="font-size: 11px; color: #666;">الرموز المتاحة: </span>
-                            <code style="font-size: 10px; background: #eee; padding: 2px 5px; border-radius: 3px;">{member_name}</code>
+                            <code style="font-size: 10px; background: #eee; padding: 2px 5px; border-radius: 3px;">{customer_name}</code>
                             <code style="font-size: 10px; background: #eee; padding: 2px 5px; border-radius: 3px;">{username}</code>
                             <code style="font-size: 10px; background: #eee; padding: 2px 5px; border-radius: 3px;">{id_number}</code>
                         </div>
@@ -169,7 +169,7 @@ $templates = [
                         foreach ($logs as $log): ?>
                             <tr>
                                 <td><?php echo $log->sent_at; ?></td>
-                                <td style="font-weight: 700;"><?php echo esc_html($log->member_name ?: '---'); ?></td>
+                                <td style="font-weight: 700;"><?php echo esc_html($log->customer_name ?: '---'); ?></td>
                                 <td><?php echo esc_html($log->recipient_email); ?></td>
                                 <td><span class="shipping-badge shipping-badge-low"><?php echo $templates[$log->notification_type] ?? $log->notification_type; ?></span></td>
                                 <td style="font-size: 12px;"><?php echo esc_html($log->subject); ?></td>

@@ -8,19 +8,19 @@ class Shipping_Activator {
         $installed_ver = get_option('shipping_db_version');
 
         // Migration: Rename old tables if they exist
-        if (version_compare($installed_ver, '97.3.0', '<')) {
+        if (empty($installed_ver) || version_compare($installed_ver, SHIPPING_VERSION, '<')) {
             self::migrate_tables();
             self::migrate_settings();
         }
 
         $sql = "";
 
-        // Members Table
-        $table_name = $wpdb->prefix . 'shipping_members';
+        // Customers Table
+        $table_name = $wpdb->prefix . 'shipping_customers';
         $sql .= "CREATE TABLE $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             username varchar(100) NOT NULL,
-            member_code tinytext,
+            customer_code tinytext,
             first_name tinytext NOT NULL,
             last_name tinytext NOT NULL,
             gender enum('male', 'female') DEFAULT 'male',
@@ -39,6 +39,7 @@ class Shipping_Activator {
             wp_user_id bigint(20),
             officer_id bigint(20),
             registration_date date,
+            classification varchar(50) DEFAULT 'regular',
             sort_order int DEFAULT 0,
             PRIMARY KEY  (id),
             UNIQUE KEY username (username),
@@ -53,7 +54,7 @@ class Shipping_Activator {
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             sender_id bigint(20) NOT NULL,
             receiver_id bigint(20) NOT NULL,
-            member_id mediumint(9),
+            customer_id mediumint(9),
             message text NOT NULL,
             file_url text,
             is_read tinyint(1) DEFAULT 0,
@@ -61,7 +62,7 @@ class Shipping_Activator {
             PRIMARY KEY  (id),
             KEY sender_id (sender_id),
             KEY receiver_id (receiver_id),
-            KEY member_id (member_id)
+            KEY customer_id (customer_id)
         ) $charset_collate;\n";
 
         // Logs Table
@@ -95,14 +96,14 @@ class Shipping_Activator {
         $table_name = $wpdb->prefix . 'shipping_notification_logs';
         $sql .= "CREATE TABLE $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
-            member_id mediumint(9),
+            customer_id mediumint(9),
             notification_type varchar(50),
             recipient_email varchar(100),
             subject varchar(255),
             sent_at datetime DEFAULT CURRENT_TIMESTAMP,
             status varchar(20),
             PRIMARY KEY  (id),
-            KEY member_id (member_id),
+            KEY customer_id (customer_id),
             KEY sent_at (sent_at)
         ) $charset_collate;\n";
 
@@ -110,7 +111,7 @@ class Shipping_Activator {
         $table_name = $wpdb->prefix . 'shipping_tickets';
         $sql .= "CREATE TABLE $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
-            member_id mediumint(9) NOT NULL,
+            customer_id mediumint(9) NOT NULL,
             subject varchar(255) NOT NULL,
             category varchar(50),
             priority enum('low', 'medium', 'high') DEFAULT 'medium',
@@ -118,7 +119,7 @@ class Shipping_Activator {
             created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
-            KEY member_id (member_id),
+            KEY customer_id (customer_id),
             KEY status (status)
         ) $charset_collate;\n";
 
@@ -260,18 +261,6 @@ class Shipping_Activator {
             UNIQUE KEY order_number (order_number)
         ) $charset_collate;\n";
 
-        // Customers Table
-        $table_name = $wpdb->prefix . 'shipping_customers';
-        $sql .= "CREATE TABLE $table_name (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            name varchar(255) NOT NULL,
-            email varchar(100),
-            phone varchar(50),
-            address text,
-            classification varchar(50),
-            created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
-            PRIMARY KEY  (id)
-        ) $charset_collate;\n";
 
         // Logistics Table
         $table_name = $wpdb->prefix . 'shipping_logistics';
@@ -301,11 +290,24 @@ class Shipping_Activator {
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             invoice_number varchar(100) NOT NULL,
             order_id mediumint(9),
-            amount decimal(10,2),
+            customer_id mediumint(9),
+            subtotal decimal(10,2),
+            tax_amount decimal(10,2),
+            discount_amount decimal(10,2),
+            total_amount decimal(10,2),
+            items_json text,
+            currency varchar(10) DEFAULT 'EGP',
             due_date date,
             status varchar(50) DEFAULT 'unpaid',
+            invoice_type varchar(50) DEFAULT 'one-time',
+            is_recurring tinyint(1) DEFAULT 0,
+            billing_interval varchar(20),
+            next_billing_date date,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
             PRIMARY KEY  (id),
-            UNIQUE KEY invoice_number (invoice_number)
+            UNIQUE KEY invoice_number (invoice_number),
+            KEY customer_id (customer_id),
+            KEY status (status)
         ) $charset_collate;\n";
 
         // Payments Table
@@ -313,10 +315,31 @@ class Shipping_Activator {
         $sql .= "CREATE TABLE $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             invoice_id mediumint(9),
+            transaction_id varchar(100),
             amount_paid decimal(10,2),
             payment_date datetime DEFAULT CURRENT_TIMESTAMP,
             payment_method varchar(50),
-            PRIMARY KEY  (id)
+            payment_status varchar(50),
+            currency varchar(10) DEFAULT 'EGP',
+            gateway_response text,
+            notes text,
+            PRIMARY KEY  (id),
+            KEY invoice_id (invoice_id),
+            KEY transaction_id (transaction_id)
+        ) $charset_collate;\n";
+
+        // Billing Logs Table (Audit Trail)
+        $table_name = $wpdb->prefix . 'shipping_billing_logs';
+        $sql .= "CREATE TABLE $table_name (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            invoice_id mediumint(9),
+            user_id bigint(20),
+            action varchar(100) NOT NULL,
+            amount decimal(10,2),
+            details text,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            PRIMARY KEY  (id),
+            KEY invoice_id (invoice_id)
         ) $charset_collate;\n";
 
         // Pricing Table
@@ -343,19 +366,19 @@ class Shipping_Activator {
         global $wpdb;
         $table = $wpdb->prefix . 'shipping_notification_templates';
         $templates = [
-            'membership_renewal' => [
+            'customership_renewal' => [
                 'subject' => 'تذكير: تجديد حساب Shipping',
-                'body' => "عزيزي العميل {member_name}،\n\nنود تذكيركم بقرب موعد تجديد عميليتكم السنوية لعام {year}.\nيرجى السداد لتجنب الغرامات.\n\nشكراً لكم.",
+                'body' => "عزيزي العميل {customer_name}،\n\nنود تذكيركم بقرب موعد تجديد حسابكم السنوي لعام {year}.\nيرجى السداد لضمان استمرار الخدمات.\n\nشكراً لكم.",
                 'days_before' => 30
             ],
             'welcome_activation' => [
-                'subject' => 'مرحباً بك في المنصة الرقمية لشركتك',
-                'body' => "أهلاً بك يا {member_name}،\n\nتم تفعيل حسابك بنجاح في المنصة الرقمية.\nيمكنك الآن الاستفادة من كافة الخدمات الإلكترونية.\n\nرقم عميليتك: {id_number}",
+                'subject' => 'مرحباً بك في المنصة الرقمية للشحن',
+                'body' => "أهلاً بك يا {customer_name}،\n\nتم تفعيل حسابك بنجاح في منصة الشحن.\nيمكنك الآن تتبع شحناتك والاستفادة من كافة الخدمات الإلكترونية.\n\nكود الحساب الخاص بك: {id_number}",
                 'days_before' => 0
             ],
             'admin_alert' => [
                 'subject' => 'تنبيه إداري من Shipping',
-                'body' => "عزيزي العميل {member_name}،\n\n{alert_message}\n\nشكراً لكم.",
+                'body' => "عزيزي العميل {customer_name}،\n\n{alert_message}\n\nشكراً لكم.",
                 'days_before' => 0
             ],
             'shipment_status_update' => [
@@ -386,17 +409,22 @@ class Shipping_Activator {
 
     private static function migrate_settings() {
         // Core info migration
-        $old_info = get_option('sm_syndicate_info');
+        $old_info = get_option('sm_company_info') ?: get_option('workedia_info');
         if ($old_info && !get_option('shipping_info')) {
             $mapped_info = [];
             foreach ((array)$old_info as $key => $value) {
-                $new_key = str_replace(['syndicate_', 'sm_'], 'shipping_', $key);
+                $new_key = str_replace(['company_', 'workedia_', 'sm_'], 'shipping_', $key);
                 $mapped_info[$new_key] = $value;
             }
             // Ensure essential keys are present
-            if (isset($old_info['syndicate_name'])) $mapped_info['shipping_name'] = $old_info['syndicate_name'];
-            if (isset($old_info['syndicate_officer_name'])) $mapped_info['shipping_officer_name'] = $old_info['syndicate_officer_name'];
-            if (isset($old_info['syndicate_logo'])) $mapped_info['shipping_logo'] = $old_info['syndicate_logo'];
+            if (isset($old_info['company_name'])) $mapped_info['shipping_name'] = $old_info['company_name'];
+            if (isset($old_info['workedia_name'])) $mapped_info['shipping_name'] = $old_info['workedia_name'];
+
+            if (isset($old_info['company_officer_name'])) $mapped_info['shipping_officer_name'] = $old_info['company_officer_name'];
+            if (isset($old_info['workedia_officer_name'])) $mapped_info['shipping_officer_name'] = $old_info['workedia_officer_name'];
+
+            if (isset($old_info['company_logo'])) $mapped_info['shipping_logo'] = $old_info['company_logo'];
+            if (isset($old_info['workedia_logo'])) $mapped_info['shipping_logo'] = $old_info['workedia_logo'];
 
             update_option('shipping_info', $mapped_info);
         }
@@ -423,7 +451,7 @@ class Shipping_Activator {
         global $wpdb;
         // Rebranding Migration (workedia_ -> shipping_)
         $mappings = array(
-            'workedia_members'                  => 'shipping_members',
+            'workedia_customers'                  => 'shipping_customers',
             'workedia_messages'                 => 'shipping_messages',
             'workedia_logs'                     => 'shipping_logs',
             'workedia_notification_templates'   => 'shipping_notification_templates',
@@ -444,8 +472,10 @@ class Shipping_Activator {
             'workedia_pricing'                  => 'shipping_pricing',
             'workedia_shipment_logs'            => 'shipping_shipment_logs',
             'workedia_shipment_tracking_events' => 'shipping_shipment_tracking_events',
+            // Table Renaming
+            'shipping_customers'          => 'shipping_customers',
             // Legacy Migration (sm_ -> shipping_)
-            'sm_members'                => 'shipping_members',
+            'sm_customers'                => 'shipping_customers',
             'sm_messages'               => 'shipping_messages',
             'sm_logs'                   => 'shipping_logs',
             'sm_payments'               => 'shipping_payments',
@@ -471,42 +501,42 @@ class Shipping_Activator {
             }
         }
 
-        $members_table = $wpdb->prefix . 'shipping_members';
-        if ($wpdb->get_var("SHOW TABLES LIKE '$members_table'")) {
+        $customers_table = $wpdb->prefix . 'shipping_customers';
+        if ($wpdb->get_var("SHOW TABLES LIKE '$customers_table'")) {
             // Rename national_id to username if it exists
-            $col_national = $wpdb->get_results("SHOW COLUMNS FROM $members_table LIKE 'national_id'");
+            $col_national = $wpdb->get_results("SHOW COLUMNS FROM $customers_table LIKE 'national_id'");
             if (!empty($col_national)) {
-                $wpdb->query("ALTER TABLE $members_table CHANGE national_id username varchar(100) NOT NULL");
+                $wpdb->query("ALTER TABLE $customers_table CHANGE national_id username varchar(100) NOT NULL");
             }
 
             // Split name into first_name and last_name if name exists
-            $col_name = $wpdb->get_results("SHOW COLUMNS FROM $members_table LIKE 'name'");
+            $col_name = $wpdb->get_results("SHOW COLUMNS FROM $customers_table LIKE 'name'");
             if (!empty($col_name)) {
                 // Ensure first_name and last_name columns exist
-                $col_first = $wpdb->get_results("SHOW COLUMNS FROM $members_table LIKE 'first_name'");
+                $col_first = $wpdb->get_results("SHOW COLUMNS FROM $customers_table LIKE 'first_name'");
                 if (empty($col_first)) {
-                    $wpdb->query("ALTER TABLE $members_table ADD first_name tinytext NOT NULL AFTER username");
-                    $wpdb->query("ALTER TABLE $members_table ADD last_name tinytext NOT NULL AFTER first_name");
+                    $wpdb->query("ALTER TABLE $customers_table ADD first_name tinytext NOT NULL AFTER username");
+                    $wpdb->query("ALTER TABLE $customers_table ADD last_name tinytext NOT NULL AFTER first_name");
 
                     // Migrate data
-                    $existing_members = $wpdb->get_results("SELECT id, name FROM $members_table");
-                    foreach ($existing_members as $m) {
+                    $existing_customers = $wpdb->get_results("SELECT id, name FROM $customers_table");
+                    foreach ($existing_customers as $m) {
                         $parts = explode(' ', $m->name);
                         $first = $parts[0];
                         $last = isset($parts[1]) ? implode(' ', array_slice($parts, 1)) : '.';
-                        $wpdb->update($members_table, ['first_name' => $first, 'last_name' => $last], ['id' => $m->id]);
+                        $wpdb->update($customers_table, ['first_name' => $first, 'last_name' => $last], ['id' => $m->id]);
                     }
                 }
                 // Drop old name column
-                $wpdb->query("ALTER TABLE $members_table DROP COLUMN name");
+                $wpdb->query("ALTER TABLE $customers_table DROP COLUMN name");
             }
 
             // Drop geographic columns if they exist
             $cols_to_drop = ['governorate', 'province'];
             foreach ($cols_to_drop as $col) {
-                $exists = $wpdb->get_results("SHOW COLUMNS FROM $members_table LIKE '$col'");
+                $exists = $wpdb->get_results("SHOW COLUMNS FROM $customers_table LIKE '$col'");
                 if (!empty($exists)) {
-                    $wpdb->query("ALTER TABLE $members_table DROP COLUMN $col");
+                    $wpdb->query("ALTER TABLE $customers_table DROP COLUMN $col");
                 }
             }
         }
@@ -516,15 +546,15 @@ class Shipping_Activator {
         // Remove custom roles if they exist
         remove_role('shipping_system_admin');
         remove_role('shipping_admin');
-        remove_role('shipping_member');
+        remove_role('shipping_customer');
         remove_role('shipping_officer');
-        remove_role('shipping_syndicate_admin');
-        remove_role('shipping_syndicate_member');
+        remove_role('shipping_company_admin');
+        remove_role('shipping_company_customer');
         remove_role('sm_system_admin');
-        remove_role('sm_syndicate_admin');
-        remove_role('sm_syndicate_member');
+        remove_role('sm_company_admin');
+        remove_role('sm_company_customer');
         remove_role('sm_officer');
-        remove_role('sm_member');
+        remove_role('sm_customer');
         remove_role('sm_parent');
         remove_role('sm_student');
 
@@ -534,7 +564,7 @@ class Shipping_Activator {
             $custom_caps = [
                 'shipping_manage_system',
                 'shipping_manage_users',
-                'shipping_manage_members',
+                'shipping_manage_customers',
                 'shipping_manage_finance',
                 'shipping_manage_licenses',
                 'shipping_print_reports',
@@ -548,7 +578,7 @@ class Shipping_Activator {
 
         self::migrate_user_meta();
         self::migrate_user_roles();
-        self::sync_missing_member_accounts();
+        self::sync_missing_customer_accounts();
         self::create_pages();
     }
 
@@ -648,10 +678,10 @@ class Shipping_Activator {
         }
     }
 
-    private static function sync_missing_member_accounts() {
+    private static function sync_missing_customer_accounts() {
         global $wpdb;
-        $members = $wpdb->get_results("SELECT *, CONCAT(first_name, ' ', last_name) as name FROM {$wpdb->prefix}shipping_members WHERE wp_user_id IS NULL OR wp_user_id = 0");
-        foreach ($members as $m) {
+        $customers = $wpdb->get_results("SELECT *, CONCAT(first_name, ' ', last_name) as name FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id IS NULL OR wp_user_id = 0");
+        foreach ($customers as $m) {
             $digits = '';
             for ($i = 0; $i < 10; $i++) {
                 $digits .= mt_rand(0, 9);
@@ -666,7 +696,7 @@ class Shipping_Activator {
             ]);
             if (!is_wp_error($user_id)) {
                 update_user_meta($user_id, 'shipping_temp_pass', $temp_pass);
-                $wpdb->update("{$wpdb->prefix}shipping_members", ['wp_user_id' => $user_id], ['id' => $m->id]);
+                $wpdb->update("{$wpdb->prefix}shipping_customers", ['wp_user_id' => $user_id], ['id' => $m->id]);
             }
         }
     }
@@ -674,17 +704,17 @@ class Shipping_Activator {
     private static function migrate_user_roles() {
         $role_migration = array(
             'sm_system_admin'           => 'administrator',
-            'sm_syndicate_admin'        => 'administrator',
-            'sm_syndicate_member'       => 'subscriber',
+            'sm_company_admin'        => 'administrator',
+            'sm_company_customer'       => 'subscriber',
             'sm_officer'                => 'administrator',
-            'sm_member'                 => 'subscriber',
+            'sm_customer'                 => 'subscriber',
             'sm_parent'                 => 'subscriber',
             'sm_student'                => 'subscriber',
             'shipping_system_admin'     => 'administrator',
             'shipping_admin'            => 'administrator',
-            'shipping_member'           => 'subscriber',
-            'shipping_syndicate_admin'  => 'administrator',
-            'shipping_syndicate_member' => 'subscriber'
+            'shipping_customer'           => 'subscriber',
+            'shipping_company_admin'  => 'administrator',
+            'shipping_company_customer' => 'subscriber'
         );
 
         foreach ($role_migration as $old => $new) {

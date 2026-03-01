@@ -16,12 +16,12 @@
         <h3 style="margin-top:0; color:var(--shipping-secondary-color);">مركز استيراد المستخدمين والعملاء</h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                <h4 style="margin-top:0;">استيراد عملاء (Members)</h4>
+                <h4 style="margin-top:0;">استيراد عملاء (Customers)</h4>
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 15px;">(اسم المستخدم، الاسم الأول، اسم العائلة، رقم الهاتف، البريد الإلكتروني)</p>
                 <form method="post" enctype="multipart/form-data">
                     <?php wp_nonce_field('shipping_admin_action', 'shipping_admin_nonce'); ?>
-                    <input type="file" name="member_csv_file" accept=".csv" required style="margin-bottom:10px; width:100%;">
-                    <button type="submit" name="shipping_import_members_csv" class="shipping-btn" style="background:#27ae60; width:100%;">بدء استيراد العملاء</button>
+                    <input type="file" name="customer_csv_file" accept=".csv" required style="margin-bottom:10px; width:100%;">
+                    <button type="submit" name="shipping_import_customers_csv" class="shipping-btn" style="background:#27ae60; width:100%;">بدء استيراد العملاء</button>
                 </form>
             </div>
             <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -58,7 +58,7 @@
                 <select name="role_filter" class="shipping-select">
                     <option value="">كل المستخدمين</option>
                     <option value="administrator" <?php selected($_GET['role_filter'] ?? '', 'administrator'); ?>>مديرو النظام (Administrators)</option>
-                    <option value="subscriber" <?php selected($_GET['role_filter'] ?? '', 'subscriber'); ?>>العملاء (Members/Subscribers)</option>
+                    <option value="subscriber" <?php selected($_GET['role_filter'] ?? '', 'subscriber'); ?>>العملاء (Customers/Subscribers)</option>
                 </select>
             </div>
 
@@ -115,24 +115,24 @@
                     <?php foreach ($users as $u):
                         $role = (array)$u->roles;
                         $role_slug = reset($role);
-                        $member_id = null;
+                        $customer_id = null;
                         if ($role_slug === 'subscriber') {
                             global $wpdb;
-                            $member_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_members WHERE wp_user_id = %d", $u->ID));
+                            $customer_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id = %d", $u->ID));
                         }
                     ?>
                         <tr class="user-row" data-user-id="<?php echo $u->ID; ?>">
                             <td><input type="checkbox" class="user-cb" value="<?php echo $u->ID; ?>"></td>
                             <td style="font-weight: 700; color: var(--shipping-primary-color);">
-                                <?php echo esc_html(get_user_meta($u->ID, 'shippingMemberIdAttr', true) ?: $u->user_login); ?>
+                                <?php echo esc_html(get_user_meta($u->ID, 'shippingCustomerIdAttr', true) ?: $u->user_login); ?>
                             </td>
                             <td style="font-weight: 800;"><?php echo esc_html($u->display_name); ?></td>
                             <td><span class="shipping-badge <?php echo $role_slug == 'administrator' ? 'shipping-badge-high' : 'shipping-badge-low'; ?>"><?php echo $role_labels[$role_slug] ?? $role_slug; ?></span></td>
                             <td dir="ltr" style="text-align: right;"><?php echo esc_html(get_user_meta($u->ID, 'shipping_phone', true)); ?></td>
                             <td>
                                 <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                                    <?php if ($member_id): ?>
-                                        <a href="<?php echo add_query_arg(['shipping_tab' => 'member-profile', 'member_id' => $member_id]); ?>" class="shipping-btn shipping-btn-outline" style="padding: 5px 12px; font-size: 12px; height: 32px; text-decoration:none;">الملف</a>
+                                    <?php if ($customer_id): ?>
+                                        <a href="<?php echo add_query_arg(['shipping_tab' => 'customer-profile', 'customer_id' => $customer_id]); ?>" class="shipping-btn shipping-btn-outline" style="padding: 5px 12px; font-size: 12px; height: 32px; text-decoration:none;">الملف</a>
                                     <?php endif; ?>
                                     <?php
                                     $u_first_name = get_user_meta($u->ID, 'first_name', true);
@@ -150,7 +150,7 @@
                                         "email" => $u->user_email,
                                         "login" => $u->user_login,
                                         "role" => $role_slug,
-                                        "member_id_attr" => get_user_meta($u->ID, "shippingMemberIdAttr", true),
+                                        "customer_id_attr" => get_user_meta($u->ID, "shippingCustomerIdAttr", true),
                                         "phone" => get_user_meta($u->ID, "shipping_phone", true),
                                         "status" => get_user_meta($u->ID, "shipping_account_status", true) ?: "active"
                                     ))); ?>)' class="shipping-btn shipping-btn-outline" style="padding: 5px 12px; font-size: 12px; height: 32px;">تعديل</button>
@@ -185,7 +185,7 @@
                 <button class="shipping-modal-close" onclick="document.getElementById('add-user-modal').style.display='none'">&times;</button>
             </div>
             <form id="add-user-form">
-                <?php wp_nonce_field('shippingMemberAction', 'shipping_nonce'); ?>
+                <?php wp_nonce_field('shippingCustomerAction', 'shipping_nonce'); ?>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; padding: 25px;">
                     <div class="shipping-form-group">
                         <label class="shipping-label">الاسم الأول:</label>
@@ -201,7 +201,7 @@
                     </div>
                     <div class="shipping-form-group">
                         <label class="shipping-label">اختيار الدور:</label>
-                        <select name="role" class="shipping-select" onchange="toggleMemberFields(this.value)">
+                        <select name="role" class="shipping-select" onchange="toggleCustomerFields(this.value)">
                             <option value="subscriber">عميل (Subscriber)</option>
                             <?php if ($is_sys_manager): ?>
                                 <option value="administrator">مدير نظام (Administrator)</option>
@@ -225,7 +225,7 @@
                         <input type="password" name="user_pass" class="shipping-input" placeholder="********">
                     </div>
                 </div>
-                <div id="member-specific-fields" style="display: block; padding: 0 25px 25px; border-top: 1px solid #eee; padding-top: 20px;">
+                <div id="customer-specific-fields" style="display: block; padding: 0 25px 25px; border-top: 1px solid #eee; padding-top: 20px;">
                     <h4 style="margin-top:0;">بيانات الحساب (اختياري)</h4>
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                         <div class="shipping-form-group"><label class="shipping-label">رقم التعريف:</label><input name="id_number" type="text" class="shipping-input"></div>
@@ -251,7 +251,7 @@
                 <button class="shipping-modal-close" onclick="document.getElementById('edit-user-modal').style.display='none'">&times;</button>
             </div>
             <form id="edit-user-form">
-                <?php wp_nonce_field('shippingMemberAction', 'shipping_nonce'); ?>
+                <?php wp_nonce_field('shippingCustomerAction', 'shipping_nonce'); ?>
                 <input type="hidden" name="edit_officer_id" id="edit_user_db_id">
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; padding: 25px;">
                     <div class="shipping-form-group">
@@ -307,8 +307,8 @@
         document.querySelectorAll('.user-cb').forEach(cb => cb.checked = master.checked);
     }
 
-    function toggleMemberFields(role) {
-        const div = document.getElementById('member-specific-fields');
+    function toggleCustomerFields(role) {
+        const div = document.getElementById('customer-specific-fields');
         div.style.display = (role === 'subscriber') ? 'block' : 'none';
     }
 
@@ -317,7 +317,7 @@
         const formData = new FormData();
         formData.append('action', 'shipping_delete_staff_ajax');
         formData.append('user_id', id);
-        formData.append('nonce', '<?php echo wp_create_nonce("shippingMemberAction"); ?>');
+        formData.append('nonce', '<?php echo wp_create_nonce("shippingCustomerAction"); ?>');
 
         fetch(ajaxurl, { method: 'POST', body: formData })
         .then(r => r.json())
@@ -342,7 +342,7 @@
         const formData = new FormData();
         formData.append('action', 'shipping_bulk_delete_users_ajax');
         formData.append('user_ids', ids.join(','));
-        formData.append('nonce', '<?php echo wp_create_nonce("shippingMemberAction"); ?>');
+        formData.append('nonce', '<?php echo wp_create_nonce("shippingCustomerAction"); ?>');
 
         fetch(ajaxurl, { method: 'POST', body: formData })
         .then(r => r.json())
@@ -358,7 +358,7 @@
         document.getElementById('edit_user_db_id').value = u.id;
         document.getElementById('edit_user_first_name').value = u.first_name;
         document.getElementById('edit_user_last_name').value = u.last_name;
-        document.getElementById('edit_user_code').value = u.member_id_attr;
+        document.getElementById('edit_user_code').value = u.customer_id_attr;
         document.getElementById('edit_user_phone').value = u.phone;
         document.getElementById('edit_user_email').value = u.email;
         document.getElementById('edit_user_status').value = u.status || 'active';

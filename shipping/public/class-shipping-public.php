@@ -21,16 +21,16 @@ class Shipping_Public {
         return false;
     }
 
-    private function can_access_member($member_id) {
+    private function can_access_customer($customer_id) {
         if (current_user_can('manage_options')) return true;
 
-        $member = Shipping_DB::get_member_by_id($member_id);
-        if (!$member) return false;
+        $customer = Shipping_DB::get_customer_by_id($customer_id);
+        if (!$customer) return false;
 
         $user = wp_get_current_user();
 
-        // Members can access their own record
-        if ($member->wp_user_id == $user->ID) {
+        // Customers can access their own record
+        if ($customer->wp_user_id == $user->ID) {
             return true;
         }
 
@@ -117,10 +117,10 @@ class Shipping_Public {
         // If already authenticated by standard means, return
         if ($user instanceof WP_User) return $user;
 
-        // 1. Check for Shipping Admin/Member ID Code (meta)
+        // 1. Check for Shipping Admin/Customer ID Code (meta)
         $code_query = new WP_User_Query(array(
             'meta_query' => array(
-                array('key' => 'shippingMemberIdAttr', 'value' => $username)
+                array('key' => 'shippingCustomerIdAttr', 'value' => $username)
             ),
             'number' => 1
         ));
@@ -130,11 +130,11 @@ class Shipping_Public {
             if (wp_check_password($password, $u->user_pass, $u->ID)) return $u;
         }
 
-        // 2. Check for Username in shipping_members table (if user_login is different)
+        // 2. Check for Username in shipping_customers table (if user_login is different)
         global $wpdb;
-        $member_wp_id = $wpdb->get_var($wpdb->prepare("SELECT wp_user_id FROM {$wpdb->prefix}shipping_members WHERE username = %s", $username));
-        if ($member_wp_id) {
-            $u = get_userdata($member_wp_id);
+        $customer_wp_id = $wpdb->get_var($wpdb->prepare("SELECT wp_user_id FROM {$wpdb->prefix}shipping_customers WHERE username = %s", $username));
+        if ($customer_wp_id) {
+            $u = get_userdata($customer_wp_id);
             if ($u && wp_check_password($password, $u->user_pass, $u->ID)) return $u;
         }
 
@@ -746,23 +746,23 @@ class Shipping_Public {
         Shipping_Logger::log('تسجيل دخول', "المستخدم: $user_login");
     }
 
-    public function ajax_get_member() {
+    public function ajax_get_customer() {
         if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
         $username = sanitize_text_field($_POST['username'] ?? '');
-        $member = Shipping_DB::get_member_by_member_username($username);
-        if ($member) {
-            if (!$this->can_access_member($member->id)) wp_send_json_error('Access denied');
-            wp_send_json_success($member);
+        $customer = Shipping_DB::get_customer_by_username($username);
+        if ($customer) {
+            if (!$this->can_access_customer($customer->id)) wp_send_json_error('Access denied');
+            wp_send_json_success($customer);
         } else {
-            wp_send_json_error('Member not found');
+            wp_send_json_error('Customer not found');
         }
     }
 
-    public function ajax_search_members() {
+    public function ajax_search_customers() {
         if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
         $query = sanitize_text_field($_POST['query']);
-        $members = Shipping_DB::get_members(array('search' => $query));
-        wp_send_json_success($members);
+        $customers = Shipping_DB::get_customers(array('search' => $query));
+        wp_send_json_success($customers);
     }
 
     public function ajax_refresh_dashboard() {
@@ -770,30 +770,30 @@ class Shipping_Public {
         wp_send_json_success(array('stats' => Shipping_DB::get_statistics()));
     }
 
-    public function ajax_update_member_photo() {
+    public function ajax_update_customer_photo() {
         if (!is_user_logged_in()) wp_send_json_error('Unauthorized');
         check_ajax_referer('shipping_photo_action', 'shipping_photo_nonce');
 
-        $member_id = intval($_POST['member_id']);
-        if (!$this->can_access_member($member_id)) wp_send_json_error('Access denied');
+        $customer_id = intval($_POST['customer_id']);
+        if (!$this->can_access_customer($customer_id)) wp_send_json_error('Access denied');
 
         require_once(ABSPATH . 'wp-admin/includes/file.php');
         require_once(ABSPATH . 'wp-admin/includes/image.php');
         require_once(ABSPATH . 'wp-admin/includes/media.php');
 
-        $attachment_id = media_handle_upload('member_photo', 0);
+        $attachment_id = media_handle_upload('customer_photo', 0);
         if (is_wp_error($attachment_id)) wp_send_json_error($attachment_id->get_error_message());
 
         $photo_url = wp_get_attachment_url($attachment_id);
-        $member_id = intval($_POST['member_id']);
-        Shipping_DB::update_member_photo($member_id, $photo_url);
+        $customer_id = intval($_POST['customer_id']);
+        Shipping_DB::update_customer_photo($customer_id, $photo_url);
         wp_send_json_success(array('photo_url' => $photo_url));
     }
 
     public function ajax_add_staff() {
         global $wpdb;
         if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
-        if (!wp_verify_nonce($_POST['shipping_nonce'], 'shippingMemberAction')) wp_send_json_error('Security check failed');
+        if (!wp_verify_nonce($_POST['shipping_nonce'], 'shippingCustomerAction')) wp_send_json_error('Security check failed');
 
         $username = sanitize_user($_POST['user_login']);
         $email = sanitize_email($_POST['user_email']);
@@ -819,8 +819,8 @@ class Shipping_Public {
         }
 
         if ($role === 'subscriber') {
-            // Unified Add for Member
-            $member_data = [
+            // Unified Add for Customer
+            $customer_data = [
                 'username' => sanitize_text_field($_POST['officer_id'] ?: $username),
                 'first_name' => $first_name,
                 'last_name' => $last_name,
@@ -829,11 +829,11 @@ class Shipping_Public {
                 'id_number' => sanitize_text_field($_POST['id_number'] ?? ''),
                 'account_status' => sanitize_text_field($_POST['account_status'] ?? 'active')
             ];
-            // Shipping_DB::add_member handles WP User creation too.
+            // Shipping_DB::add_customer handles WP User creation too.
             // But we already checked for exists.
-            $res = Shipping_DB::add_member($member_data);
+            $res = Shipping_DB::add_customer($customer_data);
             if (is_wp_error($res)) wp_send_json_error($res->get_error_message());
-            $user_id = $wpdb->get_var($wpdb->prepare("SELECT wp_user_id FROM {$wpdb->prefix}shipping_members WHERE id = %d", $res));
+            $user_id = $wpdb->get_var($wpdb->prepare("SELECT wp_user_id FROM {$wpdb->prefix}shipping_customers WHERE id = %d", $res));
         } else {
             // Standard Staff
             $user_id = wp_insert_user(array(
@@ -848,7 +848,7 @@ class Shipping_Public {
             update_user_meta($user_id, 'shipping_temp_pass', $pass);
             update_user_meta($user_id, 'first_name', $first_name);
             update_user_meta($user_id, 'last_name', $last_name);
-            update_user_meta($user_id, 'shippingMemberIdAttr', sanitize_text_field($_POST['officer_id']));
+            update_user_meta($user_id, 'shippingCustomerIdAttr', sanitize_text_field($_POST['officer_id']));
             update_user_meta($user_id, 'shipping_phone', sanitize_text_field($_POST['phone']));
             update_user_meta($user_id, 'shipping_account_status', 'active');
         }
@@ -859,17 +859,17 @@ class Shipping_Public {
 
     public function ajax_delete_staff() {
         if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
-        if (!wp_verify_nonce($_POST['nonce'], 'shippingMemberAction')) wp_send_json_error('Security check failed');
+        if (!wp_verify_nonce($_POST['nonce'], 'shippingCustomerAction')) wp_send_json_error('Security check failed');
 
         $user_id = intval($_POST['user_id']);
         if ($user_id === get_current_user_id()) wp_send_json_error('Cannot delete yourself');
         if (!$this->can_manage_user($user_id)) wp_send_json_error('Access denied');
 
-        // Check if it's a member
+        // Check if it's a customer
         global $wpdb;
-        $member_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_members WHERE wp_user_id = %d", $user_id));
-        if ($member_id) {
-            Shipping_DB::delete_member($member_id);
+        $customer_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id = %d", $user_id));
+        if ($customer_id) {
+            Shipping_DB::delete_customer($customer_id);
         } else {
             wp_delete_user($user_id);
         }
@@ -879,7 +879,7 @@ class Shipping_Public {
 
     public function ajax_update_staff() {
         if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
-        if (!wp_verify_nonce($_POST['shipping_nonce'], 'shippingMemberAction')) wp_send_json_error('Security check failed');
+        if (!wp_verify_nonce($_POST['shipping_nonce'], 'shippingCustomerAction')) wp_send_json_error('Security check failed');
 
         $user_id = intval($_POST['edit_officer_id']);
         if (!$this->can_manage_user($user_id)) wp_send_json_error('Access denied');
@@ -906,15 +906,15 @@ class Shipping_Public {
 
         update_user_meta($user_id, 'first_name', $first_name);
         update_user_meta($user_id, 'last_name', $last_name);
-        update_user_meta($user_id, 'shippingMemberIdAttr', sanitize_text_field($_POST['officer_id']));
+        update_user_meta($user_id, 'shippingCustomerIdAttr', sanitize_text_field($_POST['officer_id']));
         update_user_meta($user_id, 'shipping_phone', sanitize_text_field($_POST['phone']));
 
         update_user_meta($user_id, 'shipping_account_status', sanitize_text_field($_POST['account_status']));
 
-        // Sync to shipping_members if it's a member
+        // Sync to shipping_customers if it's a customer
         if ($role === 'subscriber') {
             global $wpdb;
-            $wpdb->update("{$wpdb->prefix}shipping_members", [
+            $wpdb->update("{$wpdb->prefix}shipping_customers", [
                 'first_name' => $first_name,
                 'last_name' => $last_name,
                 'email' => sanitize_email($_POST['user_email']),
@@ -926,33 +926,33 @@ class Shipping_Public {
         wp_send_json_success('Updated');
     }
 
-    public function ajax_add_member() {
+    public function ajax_add_customer() {
         if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
-        check_ajax_referer('shipping_add_member', 'shipping_nonce');
-        $res = Shipping_DB::add_member($_POST);
+        check_ajax_referer('shipping_add_customer', 'shipping_nonce');
+        $res = Shipping_DB::add_customer($_POST);
         if (is_wp_error($res)) wp_send_json_error($res->get_error_message());
         else wp_send_json_success($res);
     }
 
-    public function ajax_update_member() {
+    public function ajax_update_customer() {
         if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
-        check_ajax_referer('shipping_add_member', 'shipping_nonce');
+        check_ajax_referer('shipping_add_customer', 'shipping_nonce');
 
-        $member_id = intval($_POST['member_id']);
-        if (!$this->can_access_member($member_id)) wp_send_json_error('Access denied');
+        $customer_id = intval($_POST['customer_id']);
+        if (!$this->can_access_customer($customer_id)) wp_send_json_error('Access denied');
 
-        Shipping_DB::update_member($member_id, $_POST);
+        Shipping_DB::update_customer($customer_id, $_POST);
         wp_send_json_success('Updated');
     }
 
-    public function ajax_delete_member() {
+    public function ajax_delete_customer() {
         if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
-        check_ajax_referer('shipping_delete_member', 'nonce');
+        check_ajax_referer('shipping_delete_customer', 'nonce');
 
-        $member_id = intval($_POST['member_id']);
-        if (!$this->can_access_member($member_id)) wp_send_json_error('Access denied');
+        $customer_id = intval($_POST['customer_id']);
+        if (!$this->can_access_customer($customer_id)) wp_send_json_error('Access denied');
 
-        Shipping_DB::delete_member($member_id);
+        Shipping_DB::delete_customer($customer_id);
         wp_send_json_success('Deleted');
     }
 
@@ -968,14 +968,14 @@ class Shipping_Public {
 
         global $wpdb;
         $tables = [
-            'shipping_members', 'shipping_logs', 'shipping_messages'
+            'shipping_customers', 'shipping_logs', 'shipping_messages'
         ];
 
-        // 1. Delete WordPress Users associated with members
-        $member_wp_ids = $wpdb->get_col("SELECT wp_user_id FROM {$wpdb->prefix}shipping_members WHERE wp_user_id IS NOT NULL");
-        if (!empty($member_wp_ids)) {
+        // 1. Delete WordPress Users associated with customers
+        $customer_wp_ids = $wpdb->get_col("SELECT wp_user_id FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id IS NOT NULL");
+        if (!empty($customer_wp_ids)) {
             require_once(ABSPATH . 'wp-admin/includes/user.php');
-            foreach ($member_wp_ids as $uid) {
+            foreach ($customer_wp_ids as $uid) {
                 wp_delete_user($uid);
             }
         }
@@ -1011,7 +1011,7 @@ class Shipping_Public {
         $table = $rollback_info['table'];
         $data = $rollback_info['data'];
 
-        if ($table === 'members') {
+        if ($table === 'customers') {
             // Migration for old structure in logs
             if (isset($data['national_id']) && !isset($data['username'])) {
                 $data['username'] = $data['national_id'];
@@ -1025,7 +1025,7 @@ class Shipping_Public {
             }
             $full_name = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
 
-            // Re-insert into shipping_members
+            // Re-insert into shipping_customers
             $wp_user_id = $data['wp_user_id'] ?? null;
 
             // Check if user login already exists
@@ -1054,7 +1054,7 @@ class Shipping_Public {
             $data['wp_user_id'] = $wp_user_id;
             if (isset($data['name'])) unset($data['name']);
 
-            $res = $wpdb->insert("{$wpdb->prefix}shipping_members", $data);
+            $res = $wpdb->insert("{$wpdb->prefix}shipping_customers", $data);
             if ($res) {
                 Shipping_Logger::log('استعادة بيانات', "تم استعادة العميل: " . $full_name);
                 wp_send_json_success();
@@ -1072,7 +1072,7 @@ class Shipping_Public {
         check_ajax_referer('shipping_profile_action', 'nonce');
 
         $user_id = get_current_user_id();
-        $is_member = in_array('subscriber', (array)wp_get_current_user()->roles);
+        $is_customer = in_array('subscriber', (array)wp_get_current_user()->roles);
 
         $first_name = sanitize_text_field($_POST['first_name']);
         $last_name = sanitize_text_field($_POST['last_name']);
@@ -1081,7 +1081,7 @@ class Shipping_Public {
 
         $user_data = ['ID' => $user_id];
 
-        if (!$is_member) {
+        if (!$is_customer) {
             $user_data['display_name'] = trim($first_name . ' ' . $last_name);
             $user_data['user_email'] = $email;
             update_user_meta($user_id, 'first_name', $first_name);
@@ -1126,19 +1126,19 @@ class Shipping_Public {
         wp_send_json_error('User not found');
     }
 
-    public function ajax_update_member_account() {
+    public function ajax_update_customer_account() {
         if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
         check_ajax_referer('shipping_admin_action', 'shipping_nonce');
 
-        $member_id = intval($_POST['member_id']);
+        $customer_id = intval($_POST['customer_id']);
         $wp_user_id = intval($_POST['wp_user_id']);
         $email = sanitize_email($_POST['email']);
         $password = $_POST['password'] ?? '';
         $role = $_POST['role'] ?? '';
 
-        if (!$this->can_access_member($member_id)) wp_send_json_error('Access denied');
+        if (!$this->can_access_customer($customer_id)) wp_send_json_error('Access denied');
 
-        // Update email in WP User and SM Members table
+        // Update email in WP User and SM Customers table
         $user_data = ['ID' => $wp_user_id, 'user_email' => $email];
         if (!empty($password)) {
             $user_data['user_pass'] = $password;
@@ -1153,11 +1153,11 @@ class Shipping_Public {
             $user->set_role($role);
         }
 
-        // Sync email to members table
+        // Sync email to customers table
         global $wpdb;
-        $wpdb->update("{$wpdb->prefix}shipping_members", ['email' => $email], ['id' => $member_id]);
+        $wpdb->update("{$wpdb->prefix}shipping_customers", ['email' => $email], ['id' => $customer_id]);
 
-        Shipping_Logger::log('تحديث حساب عميل', "تم تحديث بيانات الحساب للعميل ID: $member_id");
+        Shipping_Logger::log('تحديث حساب عميل', "تم تحديث بيانات الحساب للعميل ID: $customer_id");
         wp_send_json_success();
     }
 
@@ -1168,35 +1168,35 @@ class Shipping_Public {
 
         if (empty($val)) wp_send_json_error('يرجى إدخال قيمة للبحث');
 
-        $member = null;
+        $customer = null;
         $results = [];
 
         switch ($type) {
-            case 'membership':
-                $member = Shipping_DB::get_member_by_id_number($val);
-                if ($member) {
-                    $results['membership'] = [
+            case 'customership':
+                $customer = Shipping_DB::get_customer_by_id_number($val);
+                if ($customer) {
+                    $results['customership'] = [
                         'label' => 'بيانات الحساب',
-                        'name' => $member->name,
-                        'number' => $member->id_number,
-                        'status' => $member->account_status,
-                        'expiry' => $member->account_expiration_date
+                        'name' => $customer->name,
+                        'number' => $customer->id_number,
+                        'status' => $customer->account_status,
+                        'expiry' => $customer->account_expiration_date
                     ];
                 }
                 break;
             default: // 'all' - Username
-                $member = Shipping_DB::get_member_by_member_username($val);
-                if (!$member) {
-                    $member = Shipping_DB::get_member_by_username($val);
+                $customer = Shipping_DB::get_customer_by_username($val);
+                if (!$customer) {
+                    $customer = Shipping_DB::get_customer_by_username($val);
                 }
 
-                if ($member) {
-                    $results['membership'] = [
+                if ($customer) {
+                    $results['customership'] = [
                         'label' => 'بيانات الحساب',
-                        'name' => $member->name,
-                        'number' => $member->id_number,
-                        'status' => $member->account_status,
-                        'expiry' => $member->account_expiration_date
+                        'name' => $customer->name,
+                        'number' => $customer->id_number,
+                        'status' => $customer->account_status,
+                        'expiry' => $customer->account_expiration_date
                     ];
                 }
                 break;
@@ -1211,8 +1211,8 @@ class Shipping_Public {
 
 
     public function handle_form_submission() {
-        if (isset($_POST['shipping_import_members_csv'])) {
-            $this->handle_member_csv_import();
+        if (isset($_POST['shipping_import_customers_csv'])) {
+            $this->handle_customer_csv_import();
         }
         if (isset($_POST['shipping_import_staffs_csv'])) {
             $this->handle_staff_csv_import();
@@ -1269,13 +1269,13 @@ class Shipping_Public {
 
     }
 
-    private function handle_member_csv_import() {
+    private function handle_customer_csv_import() {
         if (!current_user_can('manage_options')) return;
         check_admin_referer('shipping_admin_action', 'shipping_admin_nonce');
 
-        if (empty($_FILES['member_csv_file']['tmp_name'])) return;
+        if (empty($_FILES['customer_csv_file']['tmp_name'])) return;
 
-        $handle = fopen($_FILES['member_csv_file']['tmp_name'], 'r');
+        $handle = fopen($_FILES['customer_csv_file']['tmp_name'], 'r');
         if (!$handle) return;
 
         $results = ['total' => 0, 'success' => 0, 'warning' => 0, 'error' => 0];
@@ -1287,7 +1287,7 @@ class Shipping_Public {
             $results['total']++;
             if (count($data) < 3) { $results['error']++; continue; }
 
-            $member_data = [
+            $customer_data = [
                 'username' => sanitize_text_field($data[0]),
                 'first_name' => sanitize_text_field($data[1]),
                 'last_name' => sanitize_text_field($data[2]),
@@ -1295,7 +1295,7 @@ class Shipping_Public {
                 'email' => sanitize_email($data[4] ?? '')
             ];
 
-            $res = Shipping_DB::add_member($member_data);
+            $res = Shipping_DB::add_customer($customer_data);
             if (is_wp_error($res)) {
                 $results['error']++;
             } else {
@@ -1350,11 +1350,11 @@ class Shipping_Public {
                 update_user_meta($user_id, 'shipping_temp_pass', $pass);
                 update_user_meta($user_id, 'first_name', $first_name);
                 update_user_meta($user_id, 'last_name', $last_name);
-                update_user_meta($user_id, 'shippingMemberIdAttr', $officer_id);
+                update_user_meta($user_id, 'shippingCustomerIdAttr', $officer_id);
                 update_user_meta($user_id, 'shipping_phone', $phone);
-                // If it's a subscriber/member, ensure it's in members table too
+                // If it's a subscriber/customer, ensure it's in customers table too
                 if ($role === 'subscriber') {
-                    Shipping_DB::add_member([
+                    Shipping_DB::add_customer([
                         'username' => $officer_id ?: $username,
                         'first_name' => $first_name,
                         'last_name' => $last_name,
@@ -1374,7 +1374,7 @@ class Shipping_Public {
 
     public function ajax_bulk_delete_users() {
         if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
-        if (!wp_verify_nonce($_POST['nonce'], 'shippingMemberAction')) wp_send_json_error('Security check failed');
+        if (!wp_verify_nonce($_POST['nonce'], 'shippingCustomerAction')) wp_send_json_error('Security check failed');
 
         $ids = explode(',', $_POST['user_ids']);
         foreach ($ids as $id) {
@@ -1391,19 +1391,19 @@ class Shipping_Public {
         check_ajax_referer('shipping_message_action', 'nonce');
 
         $sender_id = get_current_user_id();
-        $member_id = intval($_POST['member_id'] ?? 0);
+        $customer_id = intval($_POST['customer_id'] ?? 0);
 
-        if (!$member_id) {
-            // Try to find member_id from current user if they are a member
+        if (!$customer_id) {
+            // Try to find customer_id from current user if they are a customer
             global $wpdb;
-            $member_by_wp = $wpdb->get_row($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_members WHERE wp_user_id = %d", $sender_id));
-            if ($member_by_wp) $member_id = $member_by_wp->id;
+            $customer_by_wp = $wpdb->get_row($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id = %d", $sender_id));
+            if ($customer_by_wp) $customer_id = $customer_by_wp->id;
         }
 
-        if (!$this->can_access_member($member_id)) wp_send_json_error('Access denied');
+        if (!$this->can_access_customer($customer_id)) wp_send_json_error('Access denied');
 
-        $member = Shipping_DB::get_member_by_id($member_id);
-        if (!$member) wp_send_json_error('Invalid member context');
+        $customer = Shipping_DB::get_customer_by_id($customer_id);
+        if (!$customer) wp_send_json_error('Invalid customer context');
 
         $message = sanitize_textarea_field($_POST['message'] ?? '');
         $receiver_id = intval($_POST['receiver_id'] ?? 0);
@@ -1424,7 +1424,7 @@ class Shipping_Public {
             }
         }
 
-        Shipping_DB::send_message($sender_id, $receiver_id, $message, $member_id, $file_url);
+        Shipping_DB::send_message($sender_id, $receiver_id, $message, $customer_id, $file_url);
         wp_send_json_success();
     }
 
@@ -1432,17 +1432,17 @@ class Shipping_Public {
         if (!is_user_logged_in()) wp_send_json_error('Unauthorized');
         check_ajax_referer('shipping_message_action', 'nonce');
 
-        $member_id = intval($_POST['member_id'] ?? 0);
-        if (!$member_id) {
+        $customer_id = intval($_POST['customer_id'] ?? 0);
+        if (!$customer_id) {
             $sender_id = get_current_user_id();
             global $wpdb;
-            $member_by_wp = $wpdb->get_row($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_members WHERE wp_user_id = %d", $sender_id));
-            if ($member_by_wp) $member_id = $member_by_wp->id;
+            $customer_by_wp = $wpdb->get_row($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id = %d", $sender_id));
+            if ($customer_by_wp) $customer_id = $customer_by_wp->id;
         }
 
-        if (!$this->can_access_member($member_id)) wp_send_json_error('Access denied');
+        if (!$this->can_access_customer($customer_id)) wp_send_json_error('Access denied');
 
-        wp_send_json_success(Shipping_DB::get_ticket_messages($member_id));
+        wp_send_json_success(Shipping_DB::get_ticket_messages($customer_id));
     }
 
     public function ajax_get_conversations() {
@@ -1464,11 +1464,11 @@ class Shipping_Public {
                      ]
                  ];
              }
-             wp_send_json_success(['type' => 'member_view', 'officials' => $data]);
+             wp_send_json_success(['type' => 'customer_view', 'officials' => $data]);
         } else {
              $conversations = Shipping_DB::get_all_conversations();
              foreach($conversations as &$c) {
-                 $c['member']->avatar = $c['member']->photo_url ?: get_avatar_url($c['member']->wp_user_id ?: 0);
+                 $c['customer']->avatar = $c['customer']->photo_url ?: get_avatar_url($c['customer']->wp_user_id ?: 0);
              }
              wp_send_json_success(['type' => 'official_view', 'conversations' => $conversations]);
         }
@@ -1487,16 +1487,26 @@ class Shipping_Public {
         if (!current_user_can('manage_options')) wp_die('Unauthorized');
 
         $type = sanitize_text_field($_GET['print_type'] ?? '');
-        $member_id = intval($_GET['member_id'] ?? 0);
+        $customer_id = intval($_GET['customer_id'] ?? 0);
 
-        if ($member_id && !$this->can_access_member($member_id)) wp_die('Access denied');
+        if ($customer_id && !$this->can_access_customer($customer_id)) wp_die('Access denied');
+
+        $customers = [];
+        if ($customer_id) {
+            $customers = [Shipping_DB::get_customer_by_id($customer_id)];
+        } else {
+            $customers = Shipping_DB::get_customers();
+        }
 
         switch($type) {
             case 'id_card':
                 include SHIPPING_PLUGIN_DIR . 'templates/print-id-cards.php';
                 break;
             case 'credentials':
-                include SHIPPING_PLUGIN_DIR . 'templates/print-member-credentials.php';
+                include SHIPPING_PLUGIN_DIR . 'templates/print-customer-credentials.php';
+                break;
+            case 'credentials_card':
+                include SHIPPING_PLUGIN_DIR . 'templates/print-customer-credentials-card.php';
                 break;
             default:
                 wp_die('Invalid print type');
@@ -1507,12 +1517,12 @@ class Shipping_Public {
 
     public function ajax_forgot_password_otp() {
         $username = sanitize_text_field($_POST['username'] ?? '');
-        $member = Shipping_DB::get_member_by_member_username($username);
-        if (!$member || !$member->wp_user_id) {
+        $customer = Shipping_DB::get_customer_by_username($username);
+        if (!$customer || !$customer->wp_user_id) {
             wp_send_json_error('اسم المستخدم غير مسجل في النظام');
         }
 
-        $user = get_userdata($member->wp_user_id);
+        $user = get_userdata($customer->wp_user_id);
         $otp = sprintf("%06d", mt_rand(1, 999999));
 
         update_user_meta($user->ID, 'shipping_recovery_otp', $otp);
@@ -1521,12 +1531,12 @@ class Shipping_Public {
 
         $shipping = Shipping_Settings::get_shipping_info();
         $subject = "رمز استعادة كلمة المرور - " . $shipping['shipping_name'];
-        $message = "عزيزي العميل " . $member->name . ",\n\n";
+        $message = "عزيزي العميل " . $customer->name . ",\n\n";
         $message .= "رمز التحقق الخاص بك هو: " . $otp . "\n";
         $message .= "هذا الرمز صالح لمدة 10 دقائق فقط ولمرة واحدة.\n\n";
         $message .= "إذا لم تطلب هذا الرمز، يرجى تجاهل هذه الرسالة.\n";
 
-        wp_mail($member->email, $subject, $message);
+        wp_mail($customer->email, $subject, $message);
 
         wp_send_json_success('تم إرسال رمز التحقق إلى بريدك الإلكتروني المسجل');
     }
@@ -1536,10 +1546,10 @@ class Shipping_Public {
         $otp = sanitize_text_field($_POST['otp'] ?? '');
         $new_pass = $_POST['new_password'] ?? '';
 
-        $member = Shipping_DB::get_member_by_member_username($username);
-        if (!$member || !$member->wp_user_id) wp_send_json_error('بيانات غير صحيحة');
+        $customer = Shipping_DB::get_customer_by_username($username);
+        if (!$customer || !$customer->wp_user_id) wp_send_json_error('بيانات غير صحيحة');
 
-        $user_id = $member->wp_user_id;
+        $user_id = $customer->wp_user_id;
         $saved_otp = get_user_meta($user_id, 'shipping_recovery_otp', true);
         $otp_time = get_user_meta($user_id, 'shipping_recovery_otp_time', true);
         $otp_used = get_user_meta($user_id, 'shipping_recovery_otp_used', true);
@@ -1728,7 +1738,7 @@ class Shipping_Public {
         update_user_meta($user_id, 'last_name', sanitize_text_field($data['last_name']));
         update_user_meta($user_id, 'shipping_account_status', 'active');
 
-        $member_data = [
+        $customer_data = [
             'username' => $username,
             'first_name' => sanitize_text_field($data['first_name']),
             'last_name' => sanitize_text_field($data['last_name']),
@@ -1739,7 +1749,7 @@ class Shipping_Public {
             'account_status' => 'active'
         ];
 
-        $member_id = Shipping_DB::add_member_record($member_data);
+        $customer_id = Shipping_DB::add_customer_record($customer_data);
 
         // Handle Profile Image
         if (!empty($_FILES['profile_image']['name'])) {
@@ -1750,7 +1760,7 @@ class Shipping_Public {
             $attachment_id = media_handle_upload('profile_image', 0);
             if (!is_wp_error($attachment_id)) {
                 $photo_url = wp_get_attachment_url($attachment_id);
-                Shipping_DB::update_member_photo($member_id, $photo_url);
+                Shipping_DB::update_customer_photo($customer_id, $photo_url);
             }
         }
 
@@ -1784,9 +1794,9 @@ class Shipping_Public {
 
         $user = wp_get_current_user();
         global $wpdb;
-        $member = $wpdb->get_row($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_members WHERE wp_user_id = %d", $user->ID));
+        $customer = $wpdb->get_row($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id = %d", $user->ID));
 
-        if (!$member) wp_send_json_error('Member profile not found');
+        if (!$customer) wp_send_json_error('Customer profile not found');
 
         $file_url = null;
         if (!empty($_FILES['attachment']['name'])) {
@@ -1800,7 +1810,7 @@ class Shipping_Public {
         }
 
         $data = array(
-            'member_id' => $member->id,
+            'customer_id' => $customer->id,
             'subject' => sanitize_text_field($_POST['subject']),
             'category' => sanitize_text_field($_POST['category']),
             'priority' => sanitize_text_field($_POST['priority'] ?? 'medium'),
@@ -1827,8 +1837,8 @@ class Shipping_Public {
 
         if (!$is_sys_admin) {
              global $wpdb;
-             $member_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_members WHERE wp_user_id = %d", $user->ID));
-             if ($ticket->member_id != $member_id) wp_send_json_error('Access denied');
+             $customer_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id = %d", $user->ID));
+             if ($ticket->customer_id != $customer_id) wp_send_json_error('Access denied');
         }
 
         $thread = Shipping_DB::get_ticket_thread($id);
@@ -1934,6 +1944,82 @@ class Shipping_Public {
         $rows = json_decode(stripslashes($_POST['rows']), true);
         $count = Shipping_DB::bulk_add_shipments($rows);
         wp_send_json_success($count);
+    }
+
+    public function ajax_save_invoice() {
+        if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+        check_ajax_referer('shipping_billing_action', 'nonce');
+
+        $data = array(
+            'customer_id' => intval($_POST['customer_id']),
+            'order_id' => intval($_POST['order_id'] ?? 0),
+            'subtotal' => floatval($_POST['subtotal']),
+            'tax_amount' => floatval($_POST['tax_amount'] ?? 0),
+            'discount_amount' => floatval($_POST['discount_amount'] ?? 0),
+            'total_amount' => floatval($_POST['total_amount']),
+            'items_json' => stripslashes($_POST['items_json']),
+            'due_date' => sanitize_text_field($_POST['due_date']),
+            'is_recurring' => intval($_POST['is_recurring'] ?? 0),
+            'billing_interval' => sanitize_text_field($_POST['billing_interval'] ?? '')
+        );
+
+        $id = Shipping_DB::create_invoice($data);
+        if ($id) wp_send_json_success($id);
+        else wp_send_json_error('Failed to save invoice');
+    }
+
+    public function ajax_process_payment() {
+        if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+        check_ajax_referer('shipping_billing_action', 'nonce');
+
+        $data = array(
+            'invoice_id' => intval($_POST['invoice_id']),
+            'transaction_id' => 'TRX-' . strtoupper(wp_generate_password(10, false)),
+            'amount_paid' => floatval($_POST['amount_paid']),
+            'payment_method' => sanitize_text_field($_POST['payment_method'])
+        );
+
+        if (Shipping_DB::record_payment($data)) wp_send_json_success();
+        else wp_send_json_error('Failed to process payment');
+    }
+
+    public function ajax_get_billing_report() {
+        if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+        wp_send_json_success(Shipping_DB::get_revenue_stats());
+    }
+
+
+    public function ajax_add_order() {
+        if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+        check_ajax_referer('shipping_order_action', 'nonce');
+
+        $res = Shipping_DB::add_order($_POST);
+        if ($res) wp_send_json_success($res);
+        else wp_send_json_error('Failed to add order');
+    }
+
+    public function ajax_add_route() {
+        if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+        check_ajax_referer('shipping_logistic_action', 'nonce');
+        $res = Shipping_DB::add_route($_POST);
+        if ($res) wp_send_json_success($res);
+        else wp_send_json_error('Failed to add route');
+    }
+
+    public function ajax_add_customs() {
+        if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+        check_ajax_referer('shipping_customs_action', 'nonce');
+        $res = Shipping_DB::add_customs_entry($_POST);
+        if ($res) wp_send_json_success($res);
+        else wp_send_json_error('Failed to add customs entry');
+    }
+
+    public function ajax_add_pricing() {
+        if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+        check_ajax_referer('shipping_pricing_action', 'nonce');
+        $res = Shipping_DB::add_pricing_rule($_POST);
+        if ($res) wp_send_json_success($res);
+        else wp_send_json_error('Failed to add pricing rule');
     }
 
     public function inject_global_alerts() {

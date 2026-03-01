@@ -354,12 +354,12 @@ $is_admin = in_array('administrator', $roles) || current_user_can('manage_option
 $is_sys_admin = in_array('administrator', $roles);
 $is_administrator = in_array('administrator', $roles);
 $is_subscriber = in_array('subscriber', $roles);
-$is_member = in_array('subscriber', $roles);
+$is_customer = in_array('subscriber', $roles);
 $is_officer = $is_administrator;
 
 $active_tab = isset($_GET['shipping_tab']) ? sanitize_text_field($_GET['shipping_tab']) : 'summary';
 $is_restricted = $is_subscriber;
-if ($is_restricted && !in_array($active_tab, ['my-profile', 'member-profile', 'messaging'])) {
+if ($is_restricted && !in_array($active_tab, ['my-profile', 'customer-profile', 'messaging'])) {
     $active_tab = 'my-profile';
 }
 
@@ -400,7 +400,7 @@ $greeting = ($hour >= 5 && $hour < 12) ? 'صباح الخير' : 'مساء ال�
                         if ($is_admin || $is_sys_admin) echo 'مدير نظام الشحن';
                         elseif ($is_administrator) echo 'مسؤول الشحن';
                         elseif ($is_subscriber) echo 'عميل نظام الشحن';
-                        elseif ($is_member) echo 'عميل';
+                        elseif ($is_customer) echo 'عميل';
                         else echo 'مستخدم النظام';
                         ?>
                     </div>
@@ -431,9 +431,9 @@ $greeting = ($hour >= 5 && $hour < 12) ? 'صباح الخير' : 'مساء ال�
                         <?php
                         $notif_alerts = [];
                         if ($is_restricted) {
-                            $member_by_wp = $wpdb->get_row($wpdb->prepare("SELECT id, last_paid_membership_year FROM {$wpdb->prefix}shipping_members WHERE wp_user_id = %d", $user->ID));
-                            if ($member_by_wp) {
-                                if ($member_by_wp->last_paid_membership_year < date('Y')) {
+                            $customer_by_wp = $wpdb->get_row($wpdb->prepare("SELECT id, last_paid_customership_year FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id = %d", $user->ID));
+                            if ($customer_by_wp) {
+                                if ($customer_by_wp->last_paid_customership_year < date('Y')) {
                                     $notif_alerts[] = ['text' => 'يوجد متأخرات في تجديد الحساب السنوية', 'type' => 'warning'];
                                 }
                             }
@@ -484,10 +484,10 @@ $greeting = ($hour >= 5 && $hour < 12) ? 'صباح الخير' : 'مساء ال�
                             <div style="font-weight: 800; color: var(--shipping-dark-color);"><?php echo $user->display_name; ?></div>
                             <div style="font-size: 11px; color: var(--shipping-text-gray);"><?php echo $user->user_email; ?></div>
                         </div>
-                        <?php if (!$is_member): ?>
+                        <?php if (!$is_customer): ?>
                             <a href="javascript:shippingEditProfile()" class="shipping-dropdown-item"><span class="dashicons dashicons-edit"></span> تعديل البيانات الشخصية</a>
                         <?php endif; ?>
-                        <?php if ($is_member): ?>
+                        <?php if ($is_customer): ?>
                             <a href="javascript:shippingEditProfile()" class="shipping-dropdown-item"><span class="dashicons dashicons-lock"></span> تغيير كلمة المرور</a>
                         <?php endif; ?>
                         <?php if ($is_admin): ?>
@@ -500,15 +500,15 @@ $greeting = ($hour >= 5 && $hour < 12) ? 'صباح الخير' : 'مساء ال�
                         <div style="font-weight: 800; margin-bottom: 15px; font-size: 13px; border-bottom: 1px solid #eee; padding-bottom: 10px;">تعديل الملف الشخصي</div>
                         <div class="shipping-form-group" style="margin-bottom: 10px;">
                             <label class="shipping-label" style="font-size: 11px;">الاسم الأول:</label>
-                            <input type="text" id="shipping_edit_first_name" class="shipping-input" style="padding: 8px; font-size: 12px;" value="<?php echo esc_attr(get_user_meta($user->ID, 'first_name', true)); ?>" <?php if ($is_member) echo 'disabled style="background:#f1f5f9; cursor:not-allowed;"'; ?>>
+                            <input type="text" id="shipping_edit_first_name" class="shipping-input" style="padding: 8px; font-size: 12px;" value="<?php echo esc_attr(get_user_meta($user->ID, 'first_name', true)); ?>" <?php if ($is_customer) echo 'disabled style="background:#f1f5f9; cursor:not-allowed;"'; ?>>
                         </div>
                         <div class="shipping-form-group" style="margin-bottom: 10px;">
                             <label class="shipping-label" style="font-size: 11px;">اسم العائلة:</label>
-                            <input type="text" id="shipping_edit_last_name" class="shipping-input" style="padding: 8px; font-size: 12px;" value="<?php echo esc_attr(get_user_meta($user->ID, 'last_name', true)); ?>" <?php if ($is_member) echo 'disabled style="background:#f1f5f9; cursor:not-allowed;"'; ?>>
+                            <input type="text" id="shipping_edit_last_name" class="shipping-input" style="padding: 8px; font-size: 12px;" value="<?php echo esc_attr(get_user_meta($user->ID, 'last_name', true)); ?>" <?php if ($is_customer) echo 'disabled style="background:#f1f5f9; cursor:not-allowed;"'; ?>>
                         </div>
                         <div class="shipping-form-group" style="margin-bottom: 10px;">
                             <label class="shipping-label" style="font-size: 11px;">البريد الإلكتروني:</label>
-                            <input type="email" id="shipping_edit_user_email" class="shipping-input" style="padding: 8px; font-size: 12px;" value="<?php echo esc_attr($user->user_email); ?>" <?php if ($is_member) echo 'disabled style="background:#f1f5f9; cursor:not-allowed;"'; ?>>
+                            <input type="email" id="shipping_edit_user_email" class="shipping-input" style="padding: 8px; font-size: 12px;" value="<?php echo esc_attr($user->user_email); ?>" <?php if ($is_customer) echo 'disabled style="background:#f1f5f9; cursor:not-allowed;"'; ?>>
                         </div>
                         <div class="shipping-form-group" style="margin-bottom: 15px;">
                             <label class="shipping-label" style="font-size: 11px;">كلمة مرور جديدة (اختياري):</label>
@@ -625,7 +625,7 @@ $greeting = ($hour >= 5 && $hour < 12) ? 'صباح الخير' : 'مساء ال�
                 <?php endif; ?>
 
                 <?php if ($is_restricted): ?>
-                    <li class="shipping-sidebar-item <?php echo in_array($active_tab, ['my-profile', 'member-profile']) ? 'shipping-active' : ''; ?>">
+                    <li class="shipping-sidebar-item <?php echo in_array($active_tab, ['my-profile', 'customer-profile']) ? 'shipping-active' : ''; ?>">
                         <a href="<?php echo add_query_arg('shipping_tab', 'my-profile'); ?>" class="shipping-sidebar-link"><span class="dashicons dashicons-admin-users"></span> <?php echo $labels['tab_my_profile']; ?></a>
                     </li>
                 <?php endif; ?>
@@ -705,13 +705,14 @@ $greeting = ($hour >= 5 && $hour < 12) ? 'صباح الخير' : 'مساء ال�
                     break;
 
 
-                case 'member-profile':
+                case 'customer-profile':
+                case 'customer-profile':
                 case 'my-profile':
                     if ($active_tab === 'my-profile') {
-                        $member_by_wp = $wpdb->get_row($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_members WHERE wp_user_id = %d", get_current_user_id()));
-                        if ($member_by_wp) $_GET['member_id'] = $member_by_wp->id;
+                        $customer_by_wp = $wpdb->get_row($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id = %d", get_current_user_id()));
+                        if ($customer_by_wp) $_GET['customer_id'] = $customer_by_wp->id;
                     }
-                    include SHIPPING_PLUGIN_DIR . 'templates/admin-member-profile.php';
+                    include SHIPPING_PLUGIN_DIR . 'templates/admin-customer-profile.php';
                     break;
 
 
@@ -780,7 +781,7 @@ $greeting = ($hour >= 5 && $hour < 12) ? 'صباح الخير' : 'مساء ال�
                                 <h4 style="margin-top:0; border-bottom:2px solid #f1f5f9; padding-bottom:12px; color: var(--shipping-dark-color);">إدارة قوالب التنبيهات والبريد الإلكتروني</h4>
                                 <?php
                                 $notif_templates = [
-                                    'membership_renewal' => 'تذكير تجديد الحساب',
+                                    'customership_renewal' => 'تذكير تجديد الحساب',
                                     'welcome_activation' => 'رسالة الترحيب بالتفعيل',
                                     'admin_alert' => 'تنبيه إداري عام'
                                 ];
@@ -803,7 +804,7 @@ $greeting = ($hour >= 5 && $hour < 12) ? 'صباح الخير' : 'مساء ال�
                                             <div class="shipping-form-group">
                                                 <label class="shipping-label">محتوى الرسالة (Body):</label>
                                                 <textarea name="body" id="tmpl_body" class="shipping-textarea" rows="8"></textarea>
-                                                <small style="color:#718096;">الوسوم المتاحة: {member_name}, {id_number}, {username}, {year}</small>
+                                                <small style="color:#718096;">الوسوم المتاحة: {customer_name}, {id_number}, {username}, {year}</small>
                                             </div>
                                             <div style="display:flex; align-items:center; gap:15px;">
                                                 <div class="shipping-form-group" style="flex:1;">

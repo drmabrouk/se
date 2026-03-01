@@ -25,15 +25,15 @@ class Shipping_Settings {
 
     public static function get_labels() {
         $default = array(
-            'tab_summary' => 'لوحة المعلومات',
-            'tab_users_management' => 'إدارة مستخدمي النظام',
+            'tab_summary' => 'نظرة عامة',
+            'tab_users_management' => 'إدارة المستخدمين',
             'tab_global_settings' => 'إعدادات النظام',
             'tab_my_profile' => 'ملفي الشخصي',
             'tab_general_stats' => 'الإحصائيات العامة',
-            'tab_shipment_mgmt' => 'إدارة الشحن المحلي والدوليات',
+            'tab_shipment_mgmt' => 'إدارة الشحنات',
             'tab_customer_mgmt' => 'إدارة العملاء',
             'tab_order_mgmt' => 'إدارة الطلبات',
-            'tab_tracking_logistics' => 'التتبع والخدمات اللوجستية',
+            'tab_tracking_logistics' => 'التتبع واللوجستيات',
             'tab_customs_clearance' => 'التخليص الجمركي',
             'tab_billing_payments' => 'الفواتير والمدفوعات',
             'tab_pricing_costs' => 'التسعير والتكاليف'
@@ -51,10 +51,10 @@ class Shipping_Settings {
 
     public static function get_notifications() {
         $default = array(
-            'email_subject' => 'إشعار من Shipping بخصوص العميل: {member_name}',
-            'email_template' => "تحية طيبة، نود إخطاركم بخصوص العميل: {member_name}\nالتفاصيل: {details}",
-            'whatsapp_template' => "تنبيه من Shipping بخصوص العميل {member_name}. تفاصيل: {details}.",
-            'internal_template' => "إشعار نظام بخصوص العميل {member_name}."
+            'email_subject' => 'إشعار من Shipping بخصوص العميل: {customer_name}',
+            'email_template' => "تحية طيبة، نود إخطاركم بخصوص العميل: {customer_name}\nالتفاصيل: {details}",
+            'whatsapp_template' => "تنبيه من Shipping بخصوص العميل {customer_name}. تفاصيل: {details}.",
+            'internal_template' => "إشعار نظام بخصوص العميل {customer_name}."
         );
         return get_option('shipping_notification_settings', $default);
     }

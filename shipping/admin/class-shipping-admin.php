@@ -135,9 +135,9 @@ class Shipping_Admin {
 
 
 
-        $member_filters = array();
+        $customer_filters = array();
         $stats = Shipping_DB::get_statistics();
-        $members = Shipping_DB::get_members();
+        $customers = Shipping_DB::get_customers();
         include SHIPPING_PLUGIN_DIR . 'templates/public-admin-panel.php';
     }
 

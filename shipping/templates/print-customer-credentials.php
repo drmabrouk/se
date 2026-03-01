@@ -43,7 +43,7 @@ $shipping = Shipping_Settings::get_shipping_info();
         <tbody>
             <?php
             $count = 1;
-            foreach ($members as $s):
+            foreach ($customers as $s):
                 $pass = get_user_meta($s->wp_user_id, 'shipping_temp_pass', true);
                 if (empty($pass)) $pass = '********';
             ?>

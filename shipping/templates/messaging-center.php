@@ -5,22 +5,22 @@ $user = wp_get_current_user();
 $roles = (array)$user->roles;
 $is_admin = in_array('administrator', $roles);
 $is_officer = in_array('administrator', $roles);
-$is_member = in_array('subscriber', $roles);
+$is_customer = in_array('subscriber', $roles);
 $is_official = $is_admin || $is_officer;
 
-// Get member data if applicable
-$member_id = 0;
+// Get customer data if applicable
+$customer_id = 0;
 global $wpdb;
-$member = $wpdb->get_row($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_members WHERE wp_user_id = %d", $my_id));
-if ($member) {
-    $member_id = $member->id;
+$customer = $wpdb->get_row($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id = %d", $my_id));
+if ($customer) {
+    $customer_id = $customer->id;
 }
 
 $categories = array(
     'inquiry' => array('label' => 'استفسار عام', 'color' => '#EBF8FF', 'text' => '#3182CE'),
     'finance' => array('label' => 'مشكلة مالية', 'color' => '#FEF3C7', 'text' => '#B45309'),
     'technical' => array('label' => 'دعم فني', 'color' => '#F0FDF4', 'text' => '#15803D'),
-    'membership' => array('label' => 'تجديد حساب', 'color' => '#F5F3FF', 'text' => '#6D28D9'),
+    'customership' => array('label' => 'تجديد حساب', 'color' => '#F5F3FF', 'text' => '#6D28D9'),
     'other' => array('label' => 'أخرى', 'color' => '#F1F5F9', 'text' => '#475569')
 );
 
@@ -66,7 +66,7 @@ $priorities = array(
                     <span class="dashicons dashicons-search" style="position: absolute; left: 8px; top: 10px; color: #94a3b8; font-size: 18px;"></span>
                 </div>
 
-                <?php if ($is_member): ?>
+                <?php if ($is_customer): ?>
                     <button onclick="shippingOpenCreateTicketModal()" class="shipping-btn" style="height: 40px; padding: 0 15px; font-weight: 700;">+ تذكرة</button>
                 <?php endif; ?>
             </div>
@@ -168,7 +168,7 @@ $priorities = array(
                     const card = $(`
                         <div class="shipping-ticket-card" onclick="shippingViewTicket(${t.id})" style="background: #fff; border: 1px solid var(--shipping-border-color); border-radius: 12px; padding: 20px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 20px;">
                             <div style="width: 50px; height: 50px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; border: 1px solid #e2e8f0;">
-                                ${t.member_photo ? `<img src="${t.member_photo}" style="width: 100%; height: 100%; object-fit: cover;">` : `<span class="dashicons dashicons-admin-users" style="color: #94a3b8;"></span>`}
+                                ${t.customer_photo ? `<img src="${t.customer_photo}" style="width: 100%; height: 100%; object-fit: cover;">` : `<span class="dashicons dashicons-admin-users" style="color: #94a3b8;"></span>`}
                             </div>
                             <div style="flex: 1; min-width: 0;">
                                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
@@ -177,7 +177,7 @@ $priorities = array(
                                     <span style="background: ${cat.color}; color: ${cat.text}; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;">${cat.label}</span>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 15px; font-size: 12px; color: #64748b;">
-                                    <span style="font-weight: 600;">${t.member_name}</span>
+                                    <span style="font-weight: 600;">${t.customer_name}</span>
                                     <span>•</span>
                                     <span>${t.updated_at}</span>
                                 </div>
@@ -270,8 +270,8 @@ $priorities = array(
                     <div style="margin-top: 20px; background: #fff; border-radius: 15px; border: 1px solid var(--shipping-border-color); padding: 20px; box-shadow: var(--shipping-shadow);">
                         <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid #eee; padding-bottom: 10px;">بيانات مقدم الطلب</h4>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; font-size: 13px;">
-                            <div><label style="color: #94a3b8; display: block;">الاسم:</label><strong>${t.member_name}</strong></div>
-                            <div><label style="color: #94a3b8; display: block;">رقم الهاتف:</label><strong>${t.member_phone}</strong></div>
+                            <div><label style="color: #94a3b8; display: block;">الاسم:</label><strong>${t.customer_name}</strong></div>
+                            <div><label style="color: #94a3b8; display: block;">رقم الهاتف:</label><strong>${t.customer_phone}</strong></div>
                             <div><label style="color: #94a3b8; display: block;">تاريخ الفتح:</label><strong>${t.created_at}</strong></div>
                         </div>
                     </div>
