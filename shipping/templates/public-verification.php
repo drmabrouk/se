@@ -12,7 +12,7 @@
                     <label class="shipping-label">نوع البحث:</label>
                     <select id="shipping-verify-type" class="shipping-select" style="background: #fff;">
                         <option value="all">اسم المستخدم</option>
-                        <option value="membership">رقم التعريف</option>
+                        <option value="customership">رقم التعريف</option>
                         <option value="license">رقم رخصة المنشأة</option>
                         <option value="practice">رقم تصريح المزاولة</option>
                     </select>
@@ -97,7 +97,7 @@
                     <div class="shipping-verify-grid">
             `;
 
-            if (k === 'membership') {
+            if (k === 'customership') {
                 html += `
                     <div class="shipping-verify-item"><label>الاسم</label><span>${doc.name}</span></div>
                     <div class="shipping-verify-item"><label>رقم القيد</label><span>${doc.number}</span></div>

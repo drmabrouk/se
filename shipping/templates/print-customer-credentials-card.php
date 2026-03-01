@@ -1,13 +1,13 @@
 <?php if (!defined('ABSPATH')) exit;
 $shipping = Shipping_Settings::get_shipping_info();
 
-if (!empty($_GET['member_id'])) {
-    $members_to_print = array(Shipping_DB::get_member_by_id(intval($_GET['member_id'])));
+if (!empty($_GET['customer_id'])) {
+    $customers_to_print = array(Shipping_DB::get_customer_by_id(intval($_GET['customer_id'])));
 } else {
-    $members_to_print = Shipping_DB::get_members();
+    $customers_to_print = Shipping_DB::get_customers();
 }
 
-if (empty($members_to_print) || !$members_to_print[0]) wp_die('Member(s) not found');
+if (empty($customers_to_print) || !$customers_to_print[0]) wp_die('Customer(s) not found');
 ?>
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
@@ -22,8 +22,8 @@ if (empty($members_to_print) || !$members_to_print[0]) wp_die('Member(s) not fou
         .card-header { background: #111F35; padding: 25px; text-align: center; color: #fff; }
         .card-body { padding: 35px; text-align: center; }
         .shipping-logo { height: 50px; margin-bottom: 10px; }
-        .member-name { font-size: 20px; font-weight: 900; color: #111F35; margin-bottom: 5px; }
-        .member-class { font-size: 14px; color: #718096; margin-bottom: 30px; }
+        .customer-name { font-size: 20px; font-weight: 900; color: #111F35; margin-bottom: 5px; }
+        .customer-class { font-size: 14px; color: #718096; margin-bottom: 30px; }
         .cred-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px; text-align: right; }
         .cred-label { font-size: 11px; color: #718096; font-weight: 700; margin-bottom: 5px; }
         .cred-value { font-family: monospace; font-size: 22px; font-weight: 900; color: #F63049; letter-spacing: 2px; }
@@ -37,9 +37,9 @@ if (empty($members_to_print) || !$members_to_print[0]) wp_die('Member(s) not fou
 </head>
 <body>
     <div class="cards-wrapper">
-        <?php foreach ($members_to_print as $member):
-            if (!$member) continue;
-            $pass = get_user_meta($member->wp_user_id, 'shipping_temp_pass', true);
+        <?php foreach ($customers_to_print as $customer):
+            if (!$customer) continue;
+            $pass = get_user_meta($customer->wp_user_id, 'shipping_temp_pass', true);
             if (empty($pass)) $pass = '********';
         ?>
         <div class="card">
@@ -50,11 +50,11 @@ if (empty($members_to_print) || !$members_to_print[0]) wp_die('Member(s) not fou
                 <div style="font-size: 14px; font-weight: 700;"><?php echo esc_html($shipping['shipping_name']); ?></div>
             </div>
             <div class="card-body">
-                <div class="member-name"><?php echo esc_html($member->first_name . ' ' . $member->last_name); ?></div>
+                <div class="customer-name"><?php echo esc_html($customer->first_name . ' ' . $customer->last_name); ?></div>
 
                 <div class="cred-box">
                     <div class="cred-label">اسم المستخدم:</div>
-                    <div class="cred-value"><?php echo esc_html($member->username); ?></div>
+                    <div class="cred-value"><?php echo esc_html($customer->username); ?></div>
                 </div>
 
                 <div class="cred-box" style="margin-bottom: 0;">

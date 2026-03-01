@@ -14,9 +14,9 @@ class Shipping_DB {
         return get_users($args);
     }
 
-    public static function get_members($args = array()) {
+    public static function get_customers($args = array()) {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'shipping_members';
+        $table_name = $wpdb->prefix . 'shipping_customers';
         $query = "SELECT *, CONCAT(first_name, ' ', last_name) as name FROM $table_name WHERE 1=1";
         $params = array();
 
@@ -53,31 +53,31 @@ class Shipping_DB {
         return $wpdb->get_results($query);
     }
 
-    public static function get_member_by_id($id) {
+    public static function get_customer_by_id($id) {
         global $wpdb;
-        return $wpdb->get_row($wpdb->prepare("SELECT *, CONCAT(first_name, ' ', last_name) as name FROM {$wpdb->prefix}shipping_members WHERE id = %d", $id));
+        return $wpdb->get_row($wpdb->prepare("SELECT *, CONCAT(first_name, ' ', last_name) as name FROM {$wpdb->prefix}shipping_customers WHERE id = %d", $id));
     }
 
-    public static function get_member_by_member_username($username) {
+    public static function get_customer_by_username($username) {
         global $wpdb;
-        return $wpdb->get_row($wpdb->prepare("SELECT *, CONCAT(first_name, ' ', last_name) as name FROM {$wpdb->prefix}shipping_members WHERE username = %s", $username));
+        return $wpdb->get_row($wpdb->prepare("SELECT *, CONCAT(first_name, ' ', last_name) as name FROM {$wpdb->prefix}shipping_customers WHERE username = %s", $username));
     }
 
-    public static function get_member_by_id_number($id_number) {
+    public static function get_customer_by_id_number($id_number) {
         global $wpdb;
-        return $wpdb->get_row($wpdb->prepare("SELECT *, CONCAT(first_name, ' ', last_name) as name FROM {$wpdb->prefix}shipping_members WHERE id_number = %s", $id_number));
+        return $wpdb->get_row($wpdb->prepare("SELECT *, CONCAT(first_name, ' ', last_name) as name FROM {$wpdb->prefix}shipping_customers WHERE id_number = %s", $id_number));
     }
 
-    public static function get_member_by_username($username) {
+    public static function get_customer_by_wp_username($username) {
         $user = get_user_by('login', $username);
         if (!$user) return null;
         global $wpdb;
-        return $wpdb->get_row($wpdb->prepare("SELECT *, CONCAT(first_name, ' ', last_name) as name FROM {$wpdb->prefix}shipping_members WHERE wp_user_id = %d", $user->ID));
+        return $wpdb->get_row($wpdb->prepare("SELECT *, CONCAT(first_name, ' ', last_name) as name FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id = %d", $user->ID));
     }
 
-    public static function add_member($data) {
+    public static function add_customer($data) {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'shipping_members';
+        $table_name = $wpdb->prefix . 'shipping_customers';
 
         $username = sanitize_text_field($data['username'] ?? '');
         if (empty($username)) {
@@ -95,7 +95,7 @@ class Shipping_DB {
         $full_name = trim($first_name . ' ' . $last_name);
         $email = sanitize_email($data['email'] ?? '');
 
-        // Auto-create WordPress User for the Member
+        // Auto-create WordPress User for the Customer
         $wp_user_id = null;
         $digits = '';
         for ($i = 0; $i < 10; $i++) {
@@ -155,9 +155,9 @@ class Shipping_DB {
         return $id;
     }
 
-    public static function add_member_record($data) {
+    public static function add_customer_record($data) {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'shipping_members';
+        $table_name = $wpdb->prefix . 'shipping_customers';
 
         $insert_data = array(
             'username' => sanitize_text_field($data['username']),
@@ -176,9 +176,9 @@ class Shipping_DB {
         return $wpdb->insert_id;
     }
 
-    public static function update_member($id, $data) {
+    public static function update_customer($id, $data) {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'shipping_members';
+        $table_name = $wpdb->prefix . 'shipping_customers';
 
         $update_data = array();
         $fields = [
@@ -207,15 +207,15 @@ class Shipping_DB {
         $res = $wpdb->update($table_name, $update_data, array('id' => $id));
 
         // Sync to WP User
-        $member = self::get_member_by_id($id);
-        if ($member && $member->wp_user_id) {
-            $user_data = ['ID' => $member->wp_user_id];
+        $customer = self::get_customer_by_id($id);
+        if ($customer && $customer->wp_user_id) {
+            $user_data = ['ID' => $customer->wp_user_id];
             if (isset($data['first_name']) || isset($data['last_name'])) {
-                $f = $data['first_name'] ?? $member->first_name;
-                $l = $data['last_name'] ?? $member->last_name;
+                $f = $data['first_name'] ?? $customer->first_name;
+                $l = $data['last_name'] ?? $customer->last_name;
                 $user_data['display_name'] = trim($f . ' ' . $l);
-                update_user_meta($member->wp_user_id, 'first_name', $f);
-                update_user_meta($member->wp_user_id, 'last_name', $l);
+                update_user_meta($customer->wp_user_id, 'first_name', $f);
+                update_user_meta($customer->wp_user_id, 'last_name', $l);
             }
             if (isset($data['email'])) $user_data['user_email'] = $data['email'];
             if (count($user_data) > 1) {
@@ -226,63 +226,75 @@ class Shipping_DB {
         return $res;
     }
 
-    public static function update_member_photo($id, $photo_url) {
+    public static function update_customer_photo($id, $photo_url) {
         global $wpdb;
-        return $wpdb->update($wpdb->prefix . 'shipping_members', array('photo_url' => $photo_url), array('id' => $id));
+        return $wpdb->update($wpdb->prefix . 'shipping_customers', array('photo_url' => $photo_url), array('id' => $id));
     }
 
-    public static function delete_member($id) {
+    public static function delete_customer($id) {
         global $wpdb;
 
-        $member = self::get_member_by_id($id);
-        if ($member) {
-            Shipping_Logger::log('حذف عميل (مع إمكانية الاستعادة)', 'ROLLBACK_DATA:' . json_encode(['table' => 'members', 'data' => (array)$member]));
-            if ($member->wp_user_id) {
+        $customer = self::get_customer_by_id($id);
+        if ($customer) {
+            Shipping_Logger::log('حذف عميل (مع إمكانية الاستعادة)', 'ROLLBACK_DATA:' . json_encode(['table' => 'customers', 'data' => (array)$customer]));
+            if ($customer->wp_user_id) {
                 if (!function_exists('wp_delete_user')) {
                     require_once(ABSPATH . 'wp-admin/includes/user.php');
                 }
-                wp_delete_user($member->wp_user_id);
+                wp_delete_user($customer->wp_user_id);
             }
         }
 
-        return $wpdb->delete($wpdb->prefix . 'shipping_members', array('id' => $id));
+        return $wpdb->delete($wpdb->prefix . 'shipping_customers', array('id' => $id));
     }
 
-    public static function member_exists($username) {
+    public static function customer_exists($username) {
         global $wpdb;
         return $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$wpdb->prefix}shipping_members WHERE username = %s",
+            "SELECT id FROM {$wpdb->prefix}shipping_customers WHERE username = %s",
             $username
         ));
     }
 
     public static function get_next_sort_order() {
         global $wpdb;
-        $max = $wpdb->get_var("SELECT MAX(sort_order) FROM {$wpdb->prefix}shipping_members");
+        $max = $wpdb->get_var("SELECT MAX(sort_order) FROM {$wpdb->prefix}shipping_customers");
         return ($max ? intval($max) : 0) + 1;
     }
 
-    public static function send_message($sender_id, $receiver_id, $message, $member_id = null, $file_url = null) {
+    public static function send_message($sender_id, $receiver_id, $message, $customer_id = null, $file_url = null) {
         global $wpdb;
         return $wpdb->insert($wpdb->prefix . 'shipping_messages', array(
             'sender_id' => $sender_id,
             'receiver_id' => $receiver_id,
-            'member_id' => $member_id,
+            'customer_id' => $customer_id,
             'message' => $message,
             'file_url' => $file_url,
             'created_at' => current_time('mysql')
         ));
     }
 
-    public static function get_ticket_messages($member_id) {
+    public static function add_order($data) {
+        global $wpdb;
+        return $wpdb->insert($wpdb->prefix . 'shipping_orders', array(
+            'order_number' => 'ORD-' . strtoupper(wp_generate_password(8, false)),
+            'customer_id' => intval($data['customer_id']),
+            'total_amount' => floatval($data['total_amount']),
+            'status' => 'new',
+            'created_at' => current_time('mysql')
+        ));
+    }
+
+
+    public static function get_ticket_messages($customer_id) {
         global $wpdb;
         return $wpdb->get_results($wpdb->prepare(
             "SELECT m.*, u.display_name as sender_name
              FROM {$wpdb->prefix}shipping_messages m
              LEFT JOIN {$wpdb->prefix}users u ON m.sender_id = u.ID
-             WHERE m.member_id = %d
+             WHERE m.customer_id = %d
              ORDER BY m.created_at ASC",
-            $member_id
+            $customer_id
         ));
     }
 
@@ -347,21 +359,21 @@ class Shipping_DB {
 
     public static function get_all_conversations() {
         global $wpdb;
-        $ticket_members = $wpdb->get_col("SELECT DISTINCT member_id FROM {$wpdb->prefix}shipping_messages WHERE member_id IS NOT NULL");
+        $ticket_customers = $wpdb->get_col("SELECT DISTINCT customer_id FROM {$wpdb->prefix}shipping_messages WHERE customer_id IS NOT NULL");
         $results = [];
-        foreach ($ticket_members as $mid) {
-            $member = self::get_member_by_id($mid);
-            if (!$member) continue;
+        foreach ($ticket_customers as $mid) {
+            $customer = self::get_customer_by_id($mid);
+            if (!$customer) continue;
             $last_msg = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}shipping_messages WHERE member_id = %d ORDER BY created_at DESC LIMIT 1",
+                "SELECT * FROM {$wpdb->prefix}shipping_messages WHERE customer_id = %d ORDER BY created_at DESC LIMIT 1",
                 $mid
             ));
             $unread = $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM {$wpdb->prefix}shipping_messages WHERE member_id = %d AND is_read = 0",
+                "SELECT COUNT(*) FROM {$wpdb->prefix}shipping_messages WHERE customer_id = %d AND is_read = 0",
                 $mid
             ));
             $results[] = [
-                'member' => $member,
+                'customer' => $customer,
                 'last_message' => $last_msg,
                 'unread_count' => $unread
             ];
@@ -373,19 +385,23 @@ class Shipping_DB {
         global $wpdb;
         $stats = array();
 
-        $stats['total_members'] = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}shipping_members");
-        $stats['total_officers'] = count(self::get_staff(['number' => -1]));
+        $stats['total_customers'] = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}shipping_customers");
+        $stats['active_shipments'] = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}shipping_shipments WHERE status != 'delivered' AND is_archived = 0");
+        $stats['delivered_shipments'] = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}shipping_shipments WHERE status = 'delivered'");
+        $stats['delayed_shipments'] = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->prefix}shipping_shipments WHERE status != 'delivered' AND delivery_date < %s", current_time('mysql')));
+        $stats['total_revenue'] = $wpdb->get_var("SELECT SUM(total_amount) FROM {$wpdb->prefix}shipping_invoices WHERE status = 'paid'");
+        $stats['new_orders'] = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}shipping_orders WHERE status = 'new'");
 
         return $stats;
     }
 
-    public static function get_member_stats($member_id) {
+    public static function get_customer_stats($customer_id) {
         return array();
     }
 
     public static function delete_all_data() {
         global $wpdb;
-        $wpdb->query("TRUNCATE TABLE {$wpdb->prefix}shipping_members");
+        $wpdb->query("TRUNCATE TABLE {$wpdb->prefix}shipping_customers");
         $wpdb->query("TRUNCATE TABLE {$wpdb->prefix}shipping_messages");
         $wpdb->query("TRUNCATE TABLE {$wpdb->prefix}shipping_logs");
         Shipping_Logger::log('مسح شامل للبيانات', 'تم تنفيذ أمر مسح كافة بيانات النظام');
@@ -395,7 +411,7 @@ class Shipping_DB {
         global $wpdb;
         $data = array();
         $tables = array(
-            'members', 'messages', 'shipments', 'orders', 'customers',
+            'customers', 'messages', 'shipments', 'orders', 'customers',
             'logistics', 'customs', 'invoices', 'payments', 'pricing',
             'shipment_logs', 'shipment_tracking_events'
         );
@@ -472,10 +488,10 @@ class Shipping_DB {
                 if ($shipment && $shipment->customer_id) {
                     $customer = $wpdb->get_row($wpdb->prepare("SELECT email, name FROM {$wpdb->prefix}shipping_customers WHERE id = %d", $shipment->customer_id));
                     if ($customer && $customer->email) {
-                        // Note: Shipping_Notifications::send_template_notification typically expects a member_id
+                        // Note: Shipping_Notifications::send_template_notification typically expects a customer_id
                         // For shipping alerts, we use a custom mailer or ensure IDs map correctly.
                         // Here we simulate the notification process for the customer.
-                        $workedia = Shipping_Settings::get_shipping_info();
+                        $shipping_info = Shipping_Settings::get_shipping_info();
                         $subject = "تحديث حالة الشحنة: " . $shipment->shipment_number;
                         $message = "عزيزي العميل " . $customer->name . ",\n\nتم تحديث حالة شحنتكم رقم " . $shipment->shipment_number . " إلى: " . $data['status'];
                         wp_mail($customer->email, $subject, $message);
@@ -541,6 +557,76 @@ class Shipping_DB {
         return self::update_shipment($id, array('is_archived' => 1));
     }
 
+    public static function create_invoice($data) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'shipping_invoices';
+        $res = $wpdb->insert($table, array(
+            'invoice_number' => 'INV-' . strtoupper(wp_generate_password(8, false)),
+            'customer_id' => intval($data['customer_id']),
+            'order_id' => intval($data['order_id'] ?? 0),
+            'subtotal' => floatval($data['subtotal']),
+            'tax_amount' => floatval($data['tax_amount'] ?? 0),
+            'discount_amount' => floatval($data['discount_amount'] ?? 0),
+            'total_amount' => floatval($data['total_amount']),
+            'items_json' => $data['items_json'],
+            'due_date' => $data['due_date'],
+            'status' => 'unpaid',
+            'is_recurring' => intval($data['is_recurring'] ?? 0),
+            'billing_interval' => sanitize_text_field($data['billing_interval'] ?? '')
+        ));
+        if ($res) {
+            $id = $wpdb->insert_id;
+            self::log_billing_event($id, 'Invoice Created', floatval($data['total_amount']));
+            return $id;
+        }
+        return false;
+    }
+
+    public static function record_payment($data) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'shipping_payments';
+        $res = $wpdb->insert($table, array(
+            'invoice_id' => intval($data['invoice_id']),
+            'transaction_id' => sanitize_text_field($data['transaction_id']),
+            'amount_paid' => floatval($data['amount_paid']),
+            'payment_method' => sanitize_text_field($data['payment_method']),
+            'payment_status' => 'completed',
+            'payment_date' => current_time('mysql')
+        ));
+        if ($res) {
+            $invoice_id = intval($data['invoice_id']);
+            $wpdb->update($wpdb->prefix . 'shipping_invoices', array('status' => 'paid'), array('id' => $invoice_id));
+            self::log_billing_event($invoice_id, 'Payment Received', floatval($data['amount_paid']));
+            return true;
+        }
+        return false;
+    }
+
+    public static function get_receivables() {
+        global $wpdb;
+        return $wpdb->get_results("SELECT i.*, c.name as customer_name FROM {$wpdb->prefix}shipping_invoices i JOIN {$wpdb->prefix}shipping_customers c ON i.customer_id = c.id WHERE i.status != 'paid' ORDER BY i.due_date ASC");
+    }
+
+    public static function get_revenue_stats() {
+        global $wpdb;
+        $stats = array();
+        $stats['daily'] = $wpdb->get_results("SELECT DATE(payment_date) as date, SUM(amount_paid) as total FROM {$wpdb->prefix}shipping_payments GROUP BY DATE(payment_date) LIMIT 30");
+        $stats['monthly'] = $wpdb->get_results("SELECT DATE_FORMAT(payment_date, '%Y-%m') as month, SUM(amount_paid) as total FROM {$wpdb->prefix}shipping_payments GROUP BY month LIMIT 12");
+        return $stats;
+    }
+
+    public static function log_billing_event($invoice_id, $action, $amount = 0, $details = '') {
+        global $wpdb;
+        return $wpdb->insert($wpdb->prefix . 'shipping_billing_logs', array(
+            'invoice_id' => intval($invoice_id),
+            'user_id' => get_current_user_id(),
+            'action' => $action,
+            'amount' => $amount,
+            'details' => $details,
+            'created_at' => current_time('mysql')
+        ));
+    }
+
 
 
 
@@ -548,7 +634,7 @@ class Shipping_DB {
     public static function create_ticket($data) {
         global $wpdb;
         $res = $wpdb->insert("{$wpdb->prefix}shipping_tickets", array(
-            'member_id' => intval($data['member_id']),
+            'customer_id' => intval($data['customer_id']),
             'subject' => sanitize_text_field($data['subject']),
             'category' => sanitize_text_field($data['category']),
             'priority' => sanitize_text_field($data['priority'] ?? 'medium'),
@@ -589,16 +675,16 @@ class Shipping_DB {
     public static function get_tickets($args = array()) {
         global $wpdb;
         $user = wp_get_current_user();
-        $is_member = in_array('subscriber', $user->roles);
+        $is_customer = in_array('subscriber', $user->roles);
 
         $where = "1=1";
         $params = array();
 
-        if ($is_member) {
-            // Find member_id from wp_user_id
-            $member_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_members WHERE wp_user_id = %d", $user->ID));
-            $where .= " AND t.member_id = %d";
-            $params[] = intval($member_id);
+        if ($is_customer) {
+            // Find customer_id from wp_user_id
+            $customer_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$wpdb->prefix}shipping_customers WHERE wp_user_id = %d", $user->ID));
+            $where .= " AND t.customer_id = %d";
+            $params[] = intval($customer_id);
         }
 
         if (!empty($args['status'])) {
@@ -623,9 +709,9 @@ class Shipping_DB {
             $params[] = $s;
         }
 
-        $query = "SELECT t.*, CONCAT(m.first_name, ' ', m.last_name) as member_name, m.photo_url as member_photo
+        $query = "SELECT t.*, CONCAT(m.first_name, ' ', m.last_name) as customer_name, m.photo_url as customer_photo
                   FROM {$wpdb->prefix}shipping_tickets t
-                  JOIN {$wpdb->prefix}shipping_members m ON t.member_id = m.id
+                  JOIN {$wpdb->prefix}shipping_customers m ON t.customer_id = m.id
                   WHERE $where
                   ORDER BY t.updated_at DESC";
 
@@ -638,9 +724,9 @@ class Shipping_DB {
     public static function get_ticket($id) {
         global $wpdb;
         return $wpdb->get_row($wpdb->prepare(
-            "SELECT t.*, CONCAT(m.first_name, ' ', m.last_name) as member_name, m.phone as member_phone
+            "SELECT t.*, CONCAT(m.first_name, ' ', m.last_name) as customer_name, m.phone as customer_phone
              FROM {$wpdb->prefix}shipping_tickets t
-             JOIN {$wpdb->prefix}shipping_members m ON t.member_id = m.id
+             JOIN {$wpdb->prefix}shipping_customers m ON t.customer_id = m.id
              WHERE t.id = %d",
             $id
         ));
@@ -768,6 +854,36 @@ class Shipping_DB {
             'acknowledged' => 1,
             'created_at' => current_time('mysql')
         ]);
+    }
+
+    public static function add_route($data) {
+        global $wpdb;
+        return $wpdb->insert($wpdb->prefix . 'shipping_logistics', array(
+            'route_name' => sanitize_text_field($data['route_name']),
+            'stop_points' => sanitize_textarea_field($data['stop_points'] ?? ''),
+            'fleet_details' => sanitize_textarea_field($data['fleet_details'] ?? ''),
+            'warehouse_info' => sanitize_textarea_field($data['warehouse_info'] ?? '')
+        ));
+    }
+
+    public static function add_customs_entry($data) {
+        global $wpdb;
+        return $wpdb->insert($wpdb->prefix . 'shipping_customs', array(
+            'shipment_id' => intval($data['shipment_id']),
+            'documentation_status' => sanitize_text_field($data['documentation_status']),
+            'duties_amount' => floatval($data['duties_amount']),
+            'clearance_status' => sanitize_text_field($data['clearance_status'])
+        ));
+    }
+
+    public static function add_pricing_rule($data) {
+        global $wpdb;
+        return $wpdb->insert($wpdb->prefix . 'shipping_pricing', array(
+            'service_name' => sanitize_text_field($data['service_name']),
+            'base_cost' => floatval($data['base_cost']),
+            'additional_fees' => floatval($data['additional_fees']),
+            'special_offer_details' => sanitize_textarea_field($data['special_offer_details'] ?? '')
+        ));
     }
 }
 }

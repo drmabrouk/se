@@ -40,22 +40,59 @@ $sub = $_GET['sub'] ?? 'active-shipments';
 </div>
 
 <div id="stats-delivered" class="shipping-internal-tab" style="display: <?php echo $sub == 'delivered-shipments' ? 'block' : 'none'; ?>;">
+    <?php
+    $delivered_shipments = $wpdb->get_results("SELECT s.*, c.name as customer_name FROM {$wpdb->prefix}shipping_shipments s LEFT JOIN {$wpdb->prefix}shipping_customers c ON s.customer_id = c.id WHERE s.status = 'delivered' ORDER BY s.delivery_date DESC LIMIT 50");
+    ?>
     <div class="shipping-card">
-        <h4>الشحنات المسلمة</h4>
-        <p>عرض ملخص الشحنات التي تم تسليمها بنجاح.</p>
+        <h4>الشحنات المسلمة مؤخراً</h4>
+        <div class="shipping-table-container">
+            <table class="shipping-table">
+                <thead><tr><th>رقم الشحنة</th><th>العميل</th><th>تاريخ التسليم</th></tr></thead>
+                <tbody>
+                    <?php if(empty($delivered_shipments)): ?>
+                        <tr><td colspan="3" style="text-align:center; padding:20px;">لا توجد شحنات مسلمة مسجلة.</td></tr>
+                    <?php else: foreach($delivered_shipments as $shp): ?>
+                        <tr>
+                            <td><strong><?php echo $shp->shipment_number; ?></strong></td>
+                            <td><?php echo esc_html($shp->customer_name); ?></td>
+                            <td><?php echo date('Y-m-d', strtotime($shp->delivery_date)); ?></td>
+                        </tr>
+                    <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 <div id="stats-delayed" class="shipping-internal-tab" style="display: <?php echo $sub == 'delayed-shipments' ? 'block' : 'none'; ?>;">
+    <?php
+    $delayed_shipments = $wpdb->get_results($wpdb->prepare("SELECT s.*, c.name as customer_name FROM {$wpdb->prefix}shipping_shipments s LEFT JOIN {$wpdb->prefix}shipping_customers c ON s.customer_id = c.id WHERE s.status != 'delivered' AND s.delivery_date < %s", current_time('mysql')));
+    ?>
     <div class="shipping-card" style="border-right: 5px solid #e53e3e;">
-        <h4>الشحنات المتأخرة</h4>
-        <p>تنبيه: هناك شحنات تجاوزت الموعد المحدد.</p>
+        <h4 style="color:#e53e3e;">تنبيه الشحنات المتأخرة</h4>
+        <div class="shipping-table-container">
+            <table class="shipping-table">
+                <thead><tr><th>رقم الشحنة</th><th>العميل</th><th>الموعد الفائت</th><th>الحالة</th></tr></thead>
+                <tbody>
+                    <?php if(empty($delayed_shipments)): ?>
+                        <tr><td colspan="4" style="text-align:center; padding:20px;">لا توجد شحنات متأخرة حالياً.</td></tr>
+                    <?php else: foreach($delayed_shipments as $shp): ?>
+                        <tr>
+                            <td><strong><?php echo $shp->shipment_number; ?></strong></td>
+                            <td><?php echo esc_html($shp->customer_name); ?></td>
+                            <td style="color:#e53e3e;"><?php echo date('Y-m-d', strtotime($shp->delivery_date)); ?></td>
+                            <td><span class="shipping-badge" style="background:#fff5f5; color:#c53030;"><?php echo $shp->status; ?></span></td>
+                        </tr>
+                    <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 <div id="stats-revenue" class="shipping-internal-tab" style="display: <?php echo $sub == 'total-revenue' ? 'block' : 'none'; ?>;">
     <?php
-    $total_revenue = $wpdb->get_var("SELECT SUM(amount) FROM {$wpdb->prefix}shipping_invoices WHERE status = 'paid'");
+    $total_revenue = $wpdb->get_var("SELECT SUM(total_amount) FROM {$wpdb->prefix}shipping_invoices WHERE status = 'paid'");
     ?>
     <div class="shipping-card">
         <h4>إجمالي الإيرادات (المحصلة)</h4>

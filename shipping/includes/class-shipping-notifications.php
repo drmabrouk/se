@@ -24,20 +24,20 @@ class Shipping_Notifications {
         );
     }
 
-    public static function send_template_notification($member_id, $type, $extra_placeholders = []) {
+    public static function send_template_notification($customer_id, $type, $extra_placeholders = []) {
         $template = self::get_template($type);
         if (!$template || !$template->is_enabled) return false;
 
-        $member = Shipping_DB::get_member_by_id($member_id);
-        if (!$member || empty($member->email)) return false;
+        $customer = Shipping_DB::get_customer_by_id($customer_id);
+        if (!$customer || empty($customer->email)) return false;
 
         $subject = $template->subject;
         $body = $template->body;
 
         $placeholders = array_merge([
-            '{member_name}' => $member->name,
-            '{username}' => $member->username,
-            '{id_number}' => $member->id_number,
+            '{customer_name}' => $customer->name,
+            '{username}' => $customer->username,
+            '{id_number}' => $customer->id_number,
             '{year}' => date('Y'),
         ], $extra_placeholders);
 
@@ -62,9 +62,9 @@ class Shipping_Notifications {
         add_filter('wp_mail_from_name', function() use ($shipping) { return $shipping['shipping_name']; });
 
         $headers = array('Content-Type: text/html; charset=UTF-8');
-        $sent = wp_mail($member->email, $subject, $html_message, $headers);
+        $sent = wp_mail($customer->email, $subject, $html_message, $headers);
 
-        self::log_notification($member_id, $type, $member->email, $subject, $sent ? 'success' : 'failed');
+        self::log_notification($customer_id, $type, $customer->email, $subject, $sent ? 'success' : 'failed');
 
         return $sent;
     }
@@ -112,10 +112,10 @@ class Shipping_Notifications {
         return ob_get_clean();
     }
 
-    private static function log_notification($member_id, $type, $email, $subject, $status) {
+    private static function log_notification($customer_id, $type, $email, $subject, $status) {
         global $wpdb;
         $wpdb->insert("{$wpdb->prefix}shipping_notification_logs", [
-            'member_id' => $member_id,
+            'customer_id' => $customer_id,
             'notification_type' => $type,
             'recipient_email' => $email,
             'subject' => $subject,
@@ -125,34 +125,48 @@ class Shipping_Notifications {
     }
 
     public static function run_daily_checks() {
-        self::check_membership_expirations();
+        self::check_customership_expirations();
+        self::trigger_overdue_reminders();
     }
 
-    private static function check_membership_expirations() {
-        $template = self::get_template('membership_renewal');
+    public static function trigger_overdue_reminders() {
+        global $wpdb;
+        $overdue_invoices = $wpdb->get_results("SELECT i.*, c.email, c.name FROM {$wpdb->prefix}shipping_invoices i JOIN {$wpdb->prefix}shipping_customers c ON i.customer_id = c.id WHERE i.status = 'unpaid' AND i.due_date < CURDATE()");
+
+        foreach ($overdue_invoices as $inv) {
+            if ($inv->email) {
+                $subject = "تنبيه: فاتورة متأخرة السداد - " . $inv->invoice_number;
+                $message = "عزيزي العميل " . $inv->name . ",\n\nنود تذكيركم بوجود فاتورة متأخرة السداد برقم " . $inv->invoice_number . " بمبلغ " . $inv->total_amount . " EGP.\nيرجى السداد في أقرب وقت لتجنب انقطاع الخدمة.\n\nشكراً لكم.";
+                wp_mail($inv->email, $subject, $message);
+            }
+        }
+    }
+
+    private static function check_customership_expirations() {
+        $template = self::get_template('customership_renewal');
         if (!$template || !$template->is_enabled) return;
 
         global $wpdb;
         $days = $template->days_before;
         $target_date = date('Y-m-d', strtotime("+$days days"));
 
-        $members = $wpdb->get_results($wpdb->prepare(
-            "SELECT id, account_expiration_date as expiry FROM {$wpdb->prefix}shipping_members WHERE account_expiration_date = %s",
+        $customers = $wpdb->get_results($wpdb->prepare(
+            "SELECT id, account_expiration_date as expiry FROM {$wpdb->prefix}shipping_customers WHERE account_expiration_date = %s",
             $target_date
         ));
 
-        foreach ($members as $m) {
-            if (!self::already_notified($m->id, 'membership_renewal', 5)) {
-                self::send_template_notification($m->id, 'membership_renewal', ['{expiry_date}' => $m->expiry]);
+        foreach ($customers as $m) {
+            if (!self::already_notified($m->id, 'customership_renewal', 5)) {
+                self::send_template_notification($m->id, 'customership_renewal', ['{expiry_date}' => $m->expiry]);
             }
         }
     }
 
-    private static function already_notified($member_id, $type, $days_limit) {
+    private static function already_notified($customer_id, $type, $days_limit) {
         global $wpdb;
         $last_sent = $wpdb->get_var($wpdb->prepare(
-            "SELECT sent_at FROM {$wpdb->prefix}shipping_notification_logs WHERE member_id = %d AND notification_type = %s ORDER BY sent_at DESC LIMIT 1",
-            $member_id, $type
+            "SELECT sent_at FROM {$wpdb->prefix}shipping_notification_logs WHERE customer_id = %d AND notification_type = %s ORDER BY sent_at DESC LIMIT 1",
+            $customer_id, $type
         ));
         if (!$last_sent) return false;
         return (strtotime($last_sent) > strtotime("-$days_limit days"));
@@ -161,9 +175,9 @@ class Shipping_Notifications {
     public static function get_logs($limit = 100, $offset = 0) {
         global $wpdb;
         return $wpdb->get_results($wpdb->prepare(
-            "SELECT l.*, m.name as member_name
+            "SELECT l.*, m.name as customer_name
              FROM {$wpdb->prefix}shipping_notification_logs l
-             LEFT JOIN {$wpdb->prefix}shipping_members m ON l.member_id = m.id
+             LEFT JOIN {$wpdb->prefix}shipping_customers m ON l.customer_id = m.id
              ORDER BY l.sent_at DESC LIMIT %d OFFSET %d",
             $limit, $offset
         ));

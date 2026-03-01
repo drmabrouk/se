@@ -46,10 +46,10 @@
     </div>
     <?php
     $shipping = Shipping_Settings::get_shipping_info();
-    $chunks = array_chunk($members, 6);
-    foreach ($chunks as $page_members): ?>
+    $chunks = array_chunk($customers, 6);
+    foreach ($chunks as $page_customers): ?>
     <div class="cards-container">
-        <?php foreach ($page_members as $s): ?>
+        <?php foreach ($page_customers as $s): ?>
         <div class="id-card" style="--shipping-primary-color: <?php echo Shipping_Settings::get_appearance()['primary_color']; ?>;">
             <div class="header">
                 <?php if ($shipping['shipping_logo']): ?>
